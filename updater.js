@@ -229,12 +229,46 @@ async function publish(token, files, diff, message, progress) {
   return commit;
 }
 
+// ---------- pasta salva (Chrome/Edge) ----------
+// O seletor comum de pasta não pode ser lembrado; o showDirectoryPicker devolve um
+// "handle" que fica guardado no IndexedDB e só precisa de um clique de permissão.
+const canSaveFolder = "showDirectoryPicker" in window;
+
+function idb(mode, fn) {
+  return new Promise((resolve) => {
+    try {
+      const open = indexedDB.open("biblioteca", 1);
+      open.onupgradeneeded = () => open.result.createObjectStore("kv");
+      open.onerror = () => resolve(null);
+      open.onsuccess = () => {
+        const req = fn(open.result.transaction("kv", mode).objectStore("kv"));
+        req.onsuccess = () => resolve(req.result ?? null);
+        req.onerror = () => resolve(null);
+      };
+    } catch { resolve(null); }
+  });
+}
+const savedFolder = () => idb("readonly", (st) => st.get("folder"));
+const saveFolder = (handle) => idb("readwrite", (st) => st.put(handle, "folder"));
+const forgetFolder = () => idb("readwrite", (st) => st.delete("folder"));
+
+async function filesFromHandle(dir) {
+  let perm = await dir.queryPermission({ mode: "read" });
+  if (perm !== "granted") perm = await dir.requestPermission({ mode: "read" });
+  if (perm !== "granted") throw new Error("Sem permissão para ler a pasta. Clique de novo e escolha “Permitir”.");
+  const files = [];
+  for await (const [name, h] of dir.entries()) if (h.kind === "file" && P.file.test(name)) files.push(await h.getFile());
+  return files;
+}
+
 // ---------- interface ----------
 (() => {
   const dlg = document.getElementById("updater");
   const $u = (id) => document.getElementById(id);
   const tokenInput = $u("u-token");
   let built = null;
+  let folder = null; // pasta salva (handle)
+  let busy = false;
 
   function storage(fn) { try { return fn(localStorage); } catch { return null; } }
   function status(text, kind = "") { $u("u-status").textContent = text; $u("u-status").className = `u-status ${kind}`; }
@@ -244,14 +278,27 @@ async function publish(token, files, diff, message, progress) {
     bar.hidden = frac == null;
     if (frac != null) bar.value = frac;
   }
+  // Salva o token assim que é digitado (antes só era salvo depois de publicar)
+  function saveToken() {
+    const token = tokenInput.value.trim();
+    if ($u("u-remember").checked && token) storage((s) => s.setItem(UPD.tokenKey, token));
+    if (!$u("u-remember").checked) storage((s) => s.removeItem(UPD.tokenKey));
+  }
   function refreshButtons() {
-    $u("u-publish").disabled = !(built && tokenInput.value.trim());
+    const token = tokenInput.value.trim();
+    $u("u-publish").disabled = busy || !(built && token);
+    $u("u-quick").hidden = !(folder && token);
+    $u("u-quick").disabled = busy;
     $u("u-forget").hidden = !storage((s) => s.getItem(UPD.tokenKey));
+    $u("u-saved").hidden = !folder;
+    $u("u-use-saved").hidden = !folder;
+    if (folder) $u("u-saved-name").textContent = folder.name;
   }
 
-  document.getElementById("update-btn").addEventListener("click", () => {
+  document.getElementById("update-btn").addEventListener("click", async () => {
     tokenInput.value = storage((s) => s.getItem(UPD.tokenKey)) || "";
     $u("u-token-step").open = !tokenInput.value;
+    folder = canSaveFolder ? await savedFolder() : null;
     built = null;
     $u("u-folder-info").textContent = "";
     progress("", null);
@@ -259,63 +306,88 @@ async function publish(token, files, diff, message, progress) {
     dlg.showModal();
   });
   $u("u-close").addEventListener("click", () => dlg.close());
-  tokenInput.addEventListener("input", refreshButtons);
+  tokenInput.addEventListener("input", () => { saveToken(); refreshButtons(); });
+  $u("u-remember").addEventListener("change", () => { saveToken(); refreshButtons(); });
   $u("u-forget").addEventListener("click", () => {
     storage((s) => s.removeItem(UPD.tokenKey));
     tokenInput.value = "";
     refreshButtons();
   });
+  $u("u-forget-folder").addEventListener("click", async () => {
+    await forgetFolder();
+    folder = null;
+    refreshButtons();
+  });
 
-  $u("u-folder").addEventListener("change", async (e) => {
+  async function readFolder(files) {
+    built = null;
+    progress("Lendo jogos…", 0);
+    built = await buildFromFolder(files, progress);
+    const before = new Set(games.map((g) => g.id));
+    const after = new Set(built.games.map((g) => g.id));
+    const added = built.games.filter((g) => !before.has(g.id)).length;
+    const gone = games.filter((g) => !after.has(g.id)).length;
+    $u("u-folder-info").textContent =
+      `${built.games.length.toLocaleString("pt-BR")} jogos encontrados (${built.total - built.games.length} cópias repetidas juntadas) · ${added} novos · ${gone} removidos`;
+    progress("Pronto para publicar.", null);
+  }
+
+  async function run(task) {
+    busy = true;
+    refreshButtons();
+    try {
+      await task();
+    } catch (err) {
+      if (err.name !== "AbortError") { progress(err.message, null); $u("u-status").classList.add("err"); }
+    }
+    busy = false;
+    refreshButtons();
+  }
+
+  // No Chrome/Edge usa o seletor que pode ser lembrado; nos outros, o seletor comum
+  $u("u-pick").addEventListener("click", () => {
+    if (!canSaveFolder) return $u("u-folder").click();
+    run(async () => {
+      const dir = await window.showDirectoryPicker({ id: "html-exporter", mode: "read" });
+      folder = dir;
+      await saveFolder(dir);
+      await readFolder(await filesFromHandle(dir));
+    });
+  });
+  $u("u-folder").addEventListener("change", (e) => {
     const files = [...e.target.files];
     e.target.value = "";
-    if (!files.length) return;
-    built = null;
-    refreshButtons();
-    try {
-      progress("Lendo jogos…", 0);
-      built = await buildFromFolder(files, progress);
-      const before = new Set(games.map((g) => g.id));
-      const after = new Set(built.games.map((g) => g.id));
-      const added = built.games.filter((g) => !before.has(g.id)).length;
-      const gone = games.filter((g) => !after.has(g.id)).length;
-      $u("u-folder-info").textContent =
-        `${built.games.length.toLocaleString("pt-BR")} jogos encontrados (${built.total - built.games.length} cópias repetidas juntadas) · ${added} novos · ${gone} removidos`;
-      progress("Pronto para publicar.", null);
-    } catch (err) {
-      progress(err.message, null);
-      $u("u-status").classList.add("err");
-    }
-    refreshButtons();
+    if (files.length) run(() => readFolder(files));
   });
+  $u("u-use-saved").addEventListener("click", () => run(async () => readFolder(await filesFromHandle(folder))));
 
-  $u("u-publish").addEventListener("click", async () => {
+  async function doPublish() {
     const token = tokenInput.value.trim();
     if (!built || !token) return;
-    $u("u-publish").disabled = true;
-    try {
-      const payload = { generated: timestamp(), games: built.games };
-      const files = new Map(built.files);
-      files.set("data/games.json", JSON.stringify(payload));
-      progress("Comparando com o que já está publicado…", null);
-      const diff = await diffAgainstRepo(token, files);
-      // games.json sempre muda (data de geração); só publica se algo além disso mudou
-      const gamesChanged = JSON.stringify(built.games) !== publishedGamesJSON;
-      if (!gamesChanged && diff.changed.length <= 1 && !diff.removed.length) {
-        progress("Nada mudou desde a última atualização. ✓", null);
-        $u("u-status").classList.add("ok");
-        return;
-      }
-      if ($u("u-remember").checked) storage((s) => s.setItem(UPD.tokenKey, token));
-      await publish(token, files, diff, `Atualiza biblioteca pelo site (${built.games.length} jogos)`, progress);
-      setData(JSON.parse(files.get("data/games.json")));
-      progress("Publicado! O site online atualiza em 1–2 minutos (capas de jogos novos chegam logo depois).", null);
+    saveToken();
+    const payload = { generated: timestamp(), games: built.games };
+    const files = new Map(built.files);
+    files.set("data/games.json", JSON.stringify(payload));
+    progress("Comparando com o que já está publicado…", null);
+    const diff = await diffAgainstRepo(token, files);
+    // games.json sempre muda (data de geração); só publica se algo além disso mudou
+    const gamesChanged = JSON.stringify(built.games) !== publishedGamesJSON;
+    if (!gamesChanged && diff.changed.length <= 1 && !diff.removed.length) {
+      progress("Nada mudou desde a última atualização. ✓", null);
       $u("u-status").classList.add("ok");
-      built = null;
-    } catch (err) {
-      progress(err.message, null);
-      $u("u-status").classList.add("err");
+      return;
     }
-    refreshButtons();
-  });
+    await publish(token, files, diff, `Atualiza biblioteca pelo site (${built.games.length} jogos)`, progress);
+    setData(JSON.parse(files.get("data/games.json")));
+    progress("Publicado! O site online atualiza em 1–2 minutos (capas de jogos novos chegam logo depois).", null);
+    $u("u-status").classList.add("ok");
+    built = null;
+  }
+
+  $u("u-publish").addEventListener("click", () => run(doPublish));
+  // Um clique: lê a pasta salva e publica
+  $u("u-quick").addEventListener("click", () => run(async () => {
+    await readFolder(await filesFromHandle(folder));
+    await doPublish();
+  }));
 })();

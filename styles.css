@@ -342,7 +342,9 @@ select {
 .u-step-body input[type=password]:focus { border-color: var(--accent); }
 .u-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 8px; color: var(--muted); font-size: 13px; }
 .u-row label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
-.u-step-body .btn { margin-top: 10px; }
+.u-row-btns { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.u-saved { color: var(--text) !important; }
+.u-quick { width: 100%; height: 46px; margin-bottom: 14px; font-size: 15px; }
 .u-info { color: var(--text) !important; }
 .updater progress { width: 100%; height: 6px; accent-color: var(--accent); margin-top: 8px; }
 .u-status { min-height: 1.5em; margin: 10px 0 0; font-size: 14px; color: var(--muted); }
