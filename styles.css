@@ -253,7 +253,7 @@ select {
 .ph-title {
   font: 800 19px/1.02 var(--display);
   letter-spacing: -.02em;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word; hyphens: auto;
   display: -webkit-box; -webkit-line-clamp: 6; -webkit-box-orient: vertical; overflow: hidden;
 }
 .ph-src { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; opacity: .7; }
@@ -381,7 +381,7 @@ dialog[open] { animation: pop .22s ease; }
   .toolbar { position: static; margin-top: 0; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 18px 10px; }
   .card-name { font-size: 13px; }
-  .ph-title { font-size: 15px; }
+  .ph-title { font-size: 13.5px; }
   .d-hero { height: 200px; }
   .d-body { grid-template-columns: 1fr; padding: 0 18px 20px; margin-top: -120px; gap: 18px; }
   .d-cover { width: 130px; }

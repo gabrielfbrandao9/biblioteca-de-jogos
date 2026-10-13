@@ -209,7 +209,7 @@ function renderFacets() {
     for (const v of f.all) if (!counts.has(v)) counts.set(v, 0);
     let opts = [...counts.entries()];
     if (f.order === "fixed") opts.sort((a, b) => f.fixed.indexOf(a[0]) - f.fixed.indexOf(b[0]));
-    else if (f.order === "value-desc") opts.sort((a, b) => collator.compare(b[0], a[0]));
+    else if (f.order === "value-desc") opts.sort((a, b) => (a[0] === "Sem data") - (b[0] === "Sem data") || collator.compare(b[0], a[0]));
     else opts.sort((a, b) => b[1] - a[1] || collator.compare(a[0], b[0]));
 
     const showAll = expanded.has(f.key) || opts.length <= FACET_PREVIEW + 2;
