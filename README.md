@@ -19,6 +19,9 @@ git add -A && git commit -m "Atualiza biblioteca" && git push
 - `scripts/build_data.py` lê as páginas de cada jogo da exportação e gera:
   - `data/games.json` — lista de todos os jogos (nome, loja, gêneros, notas, tempo de jogo…)
   - `data/desc/<id>.json` — descrição de cada jogo, carregada só quando você abre o jogo
+- Jogos com o mesmo nome em lojas diferentes (ignorando maiúsculas, acentos e pontuação) aparecem uma vez só,
+  com selos de cada loja e a seção "Onde eu tenho" mostrando status e tempo de jogo de cada cópia.
+  Edições diferentes (GOTY, Remastered etc.) continuam separadas.
 - Capas, banners e fundos vêm da CDN da Steam. Os caminhos são consultados na API pública da loja
   e guardados em `scripts/steam_cache.json` (só jogos novos geram consultas; `--refresh-steam` consulta tudo de novo).
   Jogos sem página na Steam ganham um cartão colorido com o nome.

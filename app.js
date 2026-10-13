@@ -30,9 +30,25 @@ const FEATURES = {
   "Massively Multiplayer Online (MMO)": "MMO",
 };
 
+// Selos das lojas: sigla curta e classe de cor
+const STORES = {
+  "Steam": "Steam",
+  "Epic": "Epic",
+  "GOG": "GOG",
+  "Amazon": "Amazon",
+  "PlayStation": "PS",
+  "Ubisoft Connect": "Ubisoft",
+  "EA app": "EA",
+  "Microsoft Store": "MS Store",
+  "Xbox": "Xbox",
+  "Legacy Games": "Legacy",
+  "Riot Games": "Riot",
+  "Battle.net": "Battle.net",
+};
+
 // Facetas da barra lateral: chave na URL, rótulo, como extrair os valores do jogo
 const FACETS = [
-  { key: "loja", label: "Loja", values: (g) => [g.source || "Outros"] },
+  { key: "loja", label: "Loja", values: (g) => g.stores },
   { key: "genero", label: "Gênero", values: (g) => g.genres || [], name: (v) => GENRES[v] || v },
   { key: "decada", label: "Lançamento", values: (g) => (g.releaseDate ? [decade(g.releaseDate)] : ["Sem data"]), order: "value-desc" },
   { key: "func", label: "Modo de jogo", values: (g) => g.features || [], name: (v) => FEATURES[v] || v },
@@ -86,11 +102,15 @@ function fmtPlaytime(sec) {
   const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
   return h ? `${nf.format(h)} h${m ? ` ${m} min` : ""}` : `${m || 1} min`;
 }
+function storeSlug(s) { return norm(s).replace(/[^a-z0-9]+/g, "-"); }
+function storeBadges(stores) {
+  return `<span class="stores">${stores.map((s) => `<span class="st st-${storeSlug(s)}" title="${esc(s)}">${esc(STORES[s] || s)}</span>`).join("")}</span>`;
+}
 function el(html) { const t = document.createElement("template"); t.innerHTML = html.trim(); return t.content.firstElementChild; }
 
 // ---------- capas ----------
 function placeholder(g) {
-  return `<div class="ph" style="--h:${hue(g.name)}"><span class="ph-src">${esc(g.source || g.library || "")}</span><span class="ph-title">${esc(g.name)}</span></div>`;
+  return `<div class="ph" style="--h:${hue(g.name)}"><span class="ph-src">${esc(g.stores.join(" · "))}</span><span class="ph-title">${esc(g.name)}</span></div>`;
 }
 function coverHTML(g, big = false) {
   const art = g.art || {};
@@ -186,7 +206,7 @@ function update() {
 function renderStats() {
   const played = games.filter((g) => g.status === "Jogado").length;
   const hours = Math.round(games.reduce((s, g) => s + (g.playtime || 0), 0) / 3600);
-  const stores = new Set(games.map((g) => g.source).filter(Boolean)).size;
+  const stores = new Set(games.flatMap((g) => g.stores).filter((s) => s !== "Outros")).size;
   $("#stats").innerHTML = [
     ["Jogos", nf.format(games.length)],
     ["Jogados", nf.format(played)],
@@ -256,8 +276,7 @@ function renderToolbar() {
 }
 
 function cardHTML(g) {
-  const sub = [g.source, year(g)].filter(Boolean).join(" · ");
-  return `<button class="card" type="button" data-id="${g.id}">${coverHTML(g)}<span class="card-name">${esc(g.name)}</span><span class="card-sub">${esc(sub)}</span></button>`;
+  return `<button class="card" type="button" data-id="${g.id}">${coverHTML(g)}<span class="card-name">${esc(g.name)}</span><span class="card-sub">${storeBadges(g.stores)}<span>${year(g)}</span></span></button>`;
 }
 function renderGrid() {
   $("#grid").innerHTML = "";
@@ -299,6 +318,7 @@ function sanitize(html) {
 function openGame(id, push = true) {
   const g = byId.get(id);
   if (!g) return;
+  id = g.id; // links antigos podem apontar para uma cópia que foi juntada
   state.jogo = id;
   writeHash(push);
 
@@ -310,7 +330,7 @@ function openGame(id, push = true) {
   if (!heroImg) hero.style.removeProperty("--hero");
 
   $("#d-cover").innerHTML = coverHTML(g, true);
-  $("#d-kicker").textContent = [g.source || g.library, (g.platforms || []).join(", ")].filter(Boolean).join(" · ");
+  $("#d-kicker").textContent = (g.platforms || []).join(" · ");
   $("#d-title").textContent = g.name;
 
   const credit = (label, list) => list?.length
@@ -325,7 +345,7 @@ function openGame(id, push = true) {
     ["Lançamento", fmtDate(g.releaseDate)],
     ["Nota da crítica", g.criticScore ?? "—"],
     ["Comunidade", g.communityScore ?? "—"],
-    ["Biblioteca", g.library],
+    ["Lojas", g.stores.length],
     ["Adicionado", fmtDate(g.added)],
   ];
   $("#d-facts").innerHTML = facts.map(([k, v]) => `<dl class="fact"><dt>${k}</dt><dd>${esc(v ?? "—")}</dd></dl>`).join("");
@@ -333,6 +353,15 @@ function openGame(id, push = true) {
   $("#d-chips").innerHTML =
     (g.genres || []).map((v) => `<button type="button" class="chip" data-f="genero" data-v="${esc(v)}">${esc(GENRES[v] || v)}</button>`).join("") +
     (g.features || []).map((v) => `<button type="button" class="chip feat" data-f="func" data-v="${esc(v)}">${esc(FEATURES[v] || v)}</button>`).join("");
+
+  const copies = g.copies || [{ source: g.stores[0], platforms: g.platforms, status: g.status, playtime: g.playtime, added: g.added }];
+  $("#d-copies").innerHTML = copies.map((c) => `<div class="copy">
+      ${storeBadges([c.source || "Outros"])}
+      <span class="copy-plat">${esc((c.platforms || []).join(", "))}</span>
+      <span class="copy-status${c.status === "Jogado" ? " ok" : ""}">${esc(c.status || "")}</span>
+      <span class="copy-time">${c.playtime ? fmtPlaytime(c.playtime) : ""}</span>
+      <span class="copy-added">adicionado em ${fmtDate(c.added)}</span>
+    </div>`).join("");
 
   const links = g.links || [];
   $("#d-links-wrap").hidden = !links.length;
@@ -445,6 +474,7 @@ fetch("data/games.json")
     for (const g of games) {
       g._text = norm([g.name, ...(g.developers || []), ...(g.publishers || [])].join(" "));
       byId.set(g.id, g);
+      for (const c of g.copies || []) byId.set(c.id, g);
     }
     for (const f of FACETS) f.all = new Set(games.flatMap((g) => f.values(g)));
     renderStats();

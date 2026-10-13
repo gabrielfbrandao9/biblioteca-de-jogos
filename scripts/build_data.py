@@ -6,12 +6,16 @@ Uso:
 Gera:
     data/games.json          lista resumida de todos os jogos (carregada na abertura)
     data/desc/<id>.json      descrição de cada jogo (carregada sob demanda)
+
+Jogos com o mesmo nome em várias lojas viram um único registro, com a lista
+de lojas em "stores" e os dados de cada cópia em "copies".
 """
 
 import html
 import json
 import re
 import sys
+import unicodedata
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -25,6 +29,9 @@ STEAM_CACHE = Path(__file__).resolve().parent / "steam_cache.json"
 STEAM_API = "https://api.steampowered.com/IStoreBrowseService/GetItems/v1"
 STEAM_BATCH = 50
 # Chave do asset na API da Steam -> chave no JSON do jogo
+# Campos de cada cópia (loja) de um jogo; o resto é do jogo em si
+COPY_FIELDS = ("id", "source", "library", "platforms", "status", "playtime", "lastActivity", "added")
+UNION_FIELDS = ("platforms", "genres", "developers", "publishers", "features", "tags")
 STEAM_ASSETS = {
     "library_capsule": "cover",
     "library_capsule_2x": "cover2x",
@@ -176,6 +183,66 @@ def attach_steam_art(games, refresh):
             game["art"] = art
 
 
+def merge_key(name):
+    """Nome normalizado: ignora maiúsculas, acentos, ™/®, apóstrofos e pontuação."""
+    name = re.sub(r"['’`´]", "", name)
+    name = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode().lower()
+    return re.sub(r"[^a-z0-9]+", " ", name).strip()
+
+
+def richness(game, descriptions):
+    """Qual cópia tem os melhores metadados (capa, descrição, campos preenchidos)."""
+    return ("art" in game, len(descriptions.get(game["id"], "")), len(game))
+
+
+def merge_duplicates(games, descriptions):
+    """Junta jogos com o mesmo nome (cópias em lojas diferentes) num único registro."""
+    groups = {}
+    for game in games:
+        groups.setdefault(merge_key(game["name"]), []).append(game)
+
+    merged = []
+    for copies in groups.values():
+        copies.sort(key=lambda g: richness(g, descriptions), reverse=True)
+        best = copies[0]
+        game = {k: v for k, v in best.items() if k not in COPY_FIELDS}
+        game["id"] = best["id"]
+        game["stores"] = sorted({c.get("source") or "Outros" for c in copies})
+        game["status"] = "Jogado" if any(c.get("status") == "Jogado" for c in copies) else best.get("status")
+        game["playtime"] = sum(c.get("playtime", 0) for c in copies)
+        for key, pick in (("lastActivity", max), ("added", min), ("modified", max)):
+            values = [c[key] for c in copies if c.get(key)]
+            if values:
+                game[key] = pick(values)
+        for key in UNION_FIELDS:
+            values = list(dict.fromkeys(v for c in copies for v in c.get(key, [])))
+            if values:
+                game[key] = values
+        for key in ("releaseDate", "criticScore", "communityScore", "userScore", "steamId", "art"):
+            value = next((c[key] for c in copies if c.get(key) is not None), None)
+            if value is not None:
+                game[key] = value
+        links = {}
+        for c in copies:
+            for link in c.get("links", []):
+                links.setdefault(link["url"], link)
+        if links:
+            game["links"] = list(links.values())
+        desc_id = max((c["id"] for c in copies), key=lambda i: len(descriptions.get(i, "")))
+        if descriptions.get(desc_id):
+            game["hasDesc"] = 1
+            game["descId"] = desc_id
+        else:
+            game.pop("hasDesc", None)
+        if len(copies) > 1:
+            game["copies"] = [
+                {k: c[k] for k in COPY_FIELDS if c.get(k) not in (None, [], "")}
+                for c in sorted(copies, key=lambda c: (c.get("source") or "", c["id"]))
+            ]
+        merged.append(game)
+    return merged
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     source = Path(args[0]) if args else DEFAULT_SOURCE
@@ -187,23 +254,28 @@ def main():
     for old in DESC_DIR.glob("*.json"):
         old.unlink()
 
-    games = []
+    games, descriptions = [], {}
     for path in files:
         game, description = parse_game(path)
         games.append(game)
         if description:
-            game["hasDesc"] = 1
-            (DESC_DIR / f"{game['id']}.json").write_text(
-                json.dumps({"html": description}, ensure_ascii=False), encoding="utf-8"
-            )
+            descriptions[game["id"]] = description
 
     attach_steam_art(games, refresh="--refresh-steam" in sys.argv)
+    total = len(games)
+    games = merge_duplicates(games, descriptions)
+    for game in games:
+        desc_id = game.pop("descId", None)
+        if desc_id:
+            (DESC_DIR / f"{game['id']}.json").write_text(
+                json.dumps({"html": descriptions[desc_id]}, ensure_ascii=False), encoding="utf-8"
+            )
     games.sort(key=lambda g: g["name"].casefold())
     payload = {"generated": datetime.now().strftime("%Y-%m-%dT%H:%M:%S"), "games": games}
     (DATA_DIR / "games.json").write_text(
         json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8"
     )
-    print(f"{len(games)} jogos exportados para {DATA_DIR}")
+    print(f"{len(games)} jogos ({total - len(games)} cópias repetidas juntadas) exportados para {DATA_DIR}")
 
 
 if __name__ == "__main__":
