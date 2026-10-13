@@ -1,0 +1,29 @@
+# Depois de uma atualização feita pelo botão do site, busca na Steam as capas
+# dos jogos novos (o navegador não consegue consultar a API da Steam).
+name: Completar capas
+
+on:
+  push:
+    branches: [main]
+    paths: [data/games.json]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  capas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python scripts/build_data.py --fix-art
+      - name: Publicar se algo mudou
+        run: |
+          if git diff --quiet; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898283+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Completa capas da Steam"
+          git push

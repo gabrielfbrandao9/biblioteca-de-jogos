@@ -467,22 +467,31 @@ new IntersectionObserver((entries) => {
 }, { rootMargin: "1200px" }).observe($("#sentinel"));
 
 // ---------- início ----------
-fetch("data/games.json")
+// Dados como foram publicados, para o botão "Atualizar" saber se algo mudou
+let publishedGamesJSON = "";
+
+function setData(data) {
+  publishedGamesJSON = JSON.stringify(data.games);
+  games = data.games;
+  byId = new Map();
+  for (const g of games) {
+    g._text = norm([g.name, ...(g.developers || []), ...(g.publishers || [])].join(" "));
+    byId.set(g.id, g);
+    for (const c of g.copies || []) byId.set(c.id, g);
+  }
+  for (const f of FACETS) f.all = new Set(games.flatMap((g) => f.values(g)));
+  renderStats();
+  update();
+  const when = new Date(data.generated);
+  $("#foot-text").textContent = `Dados exportados do Playnite em ${when.toLocaleDateString("pt-BR")}. Capas: Steam.`;
+}
+
+fetch("data/games.json", { cache: "no-cache" })
   .then((r) => r.json())
   .then((data) => {
-    games = data.games;
-    for (const g of games) {
-      g._text = norm([g.name, ...(g.developers || []), ...(g.publishers || [])].join(" "));
-      byId.set(g.id, g);
-      for (const c of g.copies || []) byId.set(c.id, g);
-    }
-    for (const f of FACETS) f.all = new Set(games.flatMap((g) => f.values(g)));
-    renderStats();
     readHash();
-    update();
+    setData(data);
     if (state.jogo) openGame(state.jogo, false);
-    const when = new Date(data.generated);
-    $("#foot").textContent = `Dados exportados do Playnite em ${when.toLocaleDateString("pt-BR")}. Capas: Steam.`;
   })
   .catch(() => {
     $("#grid").innerHTML = `<p class="empty">Não foi possível carregar data/games.json.</p>`;

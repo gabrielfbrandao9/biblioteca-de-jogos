@@ -9,6 +9,13 @@ Gera:
 
 Jogos com o mesmo nome em várias lojas viram um único registro, com a lista
 de lojas em "stores" e os dados de cada cópia em "copies".
+
+As capas vêm da CDN da Steam. Os caminhos das imagens são consultados na API
+pública da loja e guardados em scripts/steam_cache.json, então só jogos novos
+geram consultas. Opções:
+    --refresh-steam   consulta todas as capas de novo
+    --fix-art         só completa as capas que faltam em data/games.json
+                      (usado pela GitHub Action após o botão "Atualizar" do site)
 """
 
 import html
@@ -179,8 +186,24 @@ def attach_steam_art(games, refresh):
         STEAM_CACHE.write_text(json.dumps(cache, indent=0, sort_keys=True), encoding="utf-8")
     for game in games:
         art = cache.get(str(game.get("steamId")))
-        if art:
+        if art and "art" not in game:
             game["art"] = art
+
+
+def fix_art_only():
+    """Completa as capas de data/games.json sem reler a exportação.
+
+    Usado pela GitHub Action depois de uma atualização feita pelo botão do site,
+    que não consegue consultar a API da Steam direto do navegador.
+    """
+    path = DATA_DIR / "games.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    before = sum("art" in g for g in payload["games"])
+    attach_steam_art(payload["games"], refresh=False)
+    added = sum("art" in g for g in payload["games"]) - before
+    if added:
+        path.write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
+    print(f"{added} capas adicionadas")
 
 
 def merge_key(name):
@@ -244,6 +267,8 @@ def merge_duplicates(games, descriptions):
 
 
 def main():
+    if "--fix-art" in sys.argv:
+        return fix_art_only()
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
     source = Path(args[0]) if args else DEFAULT_SOURCE
     files = sorted(p for p in source.glob("*.html") if UUID_RE.match(p.stem))

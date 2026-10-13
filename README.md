@@ -6,8 +6,16 @@ Catálogo pessoal de jogos gerado a partir da exportação do **Playnite** (exte
 
 ## Como atualizar
 
-1. No Playnite, exporte a biblioteca com o HTML Exporter para `D:\Backup\Documentos\HTML Exporter`.
-2. Dê dois cliques em `atualizar.bat` (ou rode os comandos abaixo).
+No Playnite, exporte a biblioteca com o HTML Exporter. Depois, escolha um dos caminhos:
+
+**Pelo site (de qualquer computador):** clique em **Atualizar biblioteca** no rodapé, escolha a pasta da
+exportação e clique em **Publicar**. Na primeira vez o site pede um token do GitHub
+([criar aqui](https://github.com/settings/personal-access-tokens/new)): acesso só ao repositório
+`biblioteca-de-jogos`, permissão **Contents: Read and write**. O token fica salvo apenas no seu navegador.
+O navegador não consegue consultar a Steam, então a Action `Completar capas` busca as capas dos jogos novos
+logo depois da publicação.
+
+**Pelo PC:** dê dois cliques em `atualizar.bat` (ou rode os comandos abaixo).
 
 ```bash
 python scripts/build_data.py "D:\Backup\Documentos\HTML Exporter"
