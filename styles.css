@@ -194,6 +194,7 @@ select {
 .btn svg { width: 18px; height: 18px; }
 .btn.accent { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 700; }
 .btn.accent:hover { filter: brightness(1.08); }
+.actions { display: flex; gap: 8px; }
 .only-mobile, .scrim { display: none; }
 
 .active-filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
@@ -313,9 +314,6 @@ select {
   margin-top: 48px; padding-top: 16px; border-top: 1px solid var(--line);
   color: var(--faint); font-size: 13px;
 }
-.foot .link { display: inline-flex; align-items: center; gap: 6px; color: var(--faint); }
-.foot .link svg { width: 14px; height: 14px; }
-.foot .link:hover { color: var(--accent); }
 
 /* ---------- Atualizar ---------- */
 .updater { width: min(560px, calc(100vw - 32px)); padding: 26px 28px 22px; }
@@ -482,7 +480,8 @@ dialog[open] { animation: pop .22s ease; }
 @media (max-width: 520px) {
   .sort { flex: 1; }
   .sort select { flex: 1; }
-  #random { flex: 1; }
+  .actions { width: 100%; }
+  .actions .btn { flex: 1; }
   kbd { display: none; }
 }
 @media (prefers-reduced-motion: reduce) {
