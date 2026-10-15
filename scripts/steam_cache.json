@@ -3972,6 +3972,12 @@
 "header": "steam/apps/307780/header.jpg?t=1761846088",
 "hero": "steam/apps/307780/library_hero.jpg?t=1761846088"
 },
+"3094480": {
+"cover": "steam/apps/3094480/7060fab2db428783940aa618fd92de4706b81283/library_600x900.jpg?t=1778532201",
+"cover2x": "steam/apps/3094480/7060fab2db428783940aa618fd92de4706b81283/library_600x900_2x.jpg?t=1778532201",
+"header": "steam/apps/3094480/e1801746961b88b3cbc43a72d1e77b030876e0a4/header.jpg?t=1778532201",
+"hero": "steam/apps/3094480/700e30532478635efd615b3385dac681150ae4ee/library_hero.jpg?t=1778532201"
+},
 "3101800": {
 "cover": "steam/apps/3101800/946450bd26c46c9d7c1791523446312c692984c8/library_600x900.jpg?t=1733726814",
 "cover2x": "steam/apps/3101800/946450bd26c46c9d7c1791523446312c692984c8/library_600x900_2x.jpg?t=1733726814",
@@ -6911,6 +6917,12 @@
 "cover2x": "steam/apps/8000/library_600x900_2x.jpg?t=1729009457",
 "header": "steam/apps/8000/header.jpg?t=1729009457",
 "hero": "steam/apps/8000/library_hero.jpg?t=1729009457"
+},
+"801480": {
+"cover": "steam/apps/801480/library_600x900.jpg?t=1724988275",
+"cover2x": "steam/apps/801480/library_600x900_2x.jpg?t=1724988275",
+"header": "steam/apps/801480/header.jpg?t=1724988275",
+"hero": "steam/apps/801480/library_hero.jpg?t=1724988275"
 },
 "804010": {
 "cover": "steam/apps/804010/library_600x900.jpg?t=1726132201",
