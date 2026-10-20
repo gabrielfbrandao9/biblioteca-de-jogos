@@ -144,26 +144,33 @@ function mergeDuplicates(list) {
   return merged;
 }
 
-// Tempo para zerar do HowLongToBeat; os que faltam são buscados pela função, 40 por vez
-async function addBeatTimes(merged, progress) {
-  let hltb = new Map();
-  try {
-    hltb = await Nuvem.metas("hltb:");
-    const faltam = [...new Map(merged.map((g) => [mergeKey(g.name), g.name]))]
-      .filter(([k]) => k && !hltb.has(`hltb:${k}`));
-    for (let i = 0; i < faltam.length; i += 40) {
-      progress(`Buscando o tempo para zerar no HowLongToBeat… ${nf.format(i)}/${nf.format(faltam.length)}`, i / faltam.length);
-      const lote = faltam.slice(i, i + 40).map(([chave, nome]) => ({ chave, nome }));
-      const r = await Nuvem.lojasAcao({ acao: "hltb", itens: lote });
-      if (!r.feitos) break; // o HowLongToBeat não respondeu; tenta de novo na próxima vez
-    }
-    if (faltam.length) hltb = await Nuvem.metas("hltb:");
-  } catch (err) {
-    console.warn("HowLongToBeat:", err);
-  }
-  for (const g of merged) {
+// Tempo para zerar do HowLongToBeat (guardado em jogos_meta como 'hltb:<nome>')
+function applyBeatTimes(games, hltb) {
+  for (const g of games) {
     const t = hltb.get(`hltb:${mergeKey(g.name)}`);
     if (t?.id) g.hltb = { id: t.id, main: t.main || undefined, plus: t.plus || undefined, full: t.full || undefined };
+  }
+}
+// Depois da biblioteca já salva: busca os tempos que faltam, 40 por vez, e regrava a cada 10 lotes.
+// Se for interrompido, o que já veio fica guardado e a próxima sincronização continua dali.
+async function fetchBeatTimes(payload, progress, onSaved) {
+  try {
+    const have = await Nuvem.metas("hltb:");
+    const faltam = [...new Map(payload.games.map((g) => [mergeKey(g.name), g.name]))]
+      .filter(([k]) => k && !have.has(`hltb:${k}`));
+    for (let i = 0; i < faltam.length; i += 40) {
+      progress(`Biblioteca salva. Buscando o tempo para zerar no HowLongToBeat… ${nf.format(i)}/${nf.format(faltam.length)}`, i / faltam.length);
+      const lote = faltam.slice(i, i + 40).map(([chave, nome]) => ({ chave, nome }));
+      const r = await Nuvem.lojasAcao({ acao: "hltb", itens: lote });
+      const fim = !r.feitos || i + 40 >= faltam.length; // sem resposta do HowLongToBeat: tenta de novo na próxima vez
+      if (fim || (i / 40) % 10 === 9) {
+        applyBeatTimes(payload.games, await Nuvem.metas("hltb:"));
+        onSaved(payload, (await Nuvem.salvarBiblioteca(payload)).atualizado_em);
+      }
+      if (!r.feitos) break;
+    }
+  } catch (err) {
+    console.warn("HowLongToBeat:", err);
   }
 }
 
@@ -187,7 +194,7 @@ async function rebuildLibrary(progress) {
 
   const list = items.map((it) => itemCopy(it, metas.get(`gdb:${it.loja}:${it.id_loja}`), capas));
   const merged = mergeDuplicates(list);
-  await addBeatTimes(merged, progress);
+  applyBeatTimes(merged, await Nuvem.metas("hltb:").catch(() => new Map()));
   merged.sort((a, b) => { const x = a.name.toLowerCase(), y = b.name.toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; });
   const payload = { generated: localISO(), games: merged };
   progress("Salvando a lista de jogos…", 1);
@@ -416,6 +423,7 @@ async function rebuildLibrary(progress) {
     }
     const { payload, at } = await rebuildLibrary(progress);
     onPublished(payload, at);
+    await fetchBeatTimes(payload, progress, onPublished);
     progress(`Biblioteca atualizada: ${nf.format(payload.games.length)} jogos. ✓`, null);
     $l("u-status").classList.add("ok");
     if (erros.length) {
