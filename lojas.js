@@ -275,8 +275,10 @@ async function rebuildLibrary(progress) {
       const info = l
         ? `<b>${esc(l.conta || "conectada")}</b>${l.itens != null ? ` · ${nf.format(l.itens)} jogos` : ""}${l.sincronizado_em ? ` · ${fmtWhen(l.sincronizado_em)}` : " · ainda não sincronizada"}`
         : "não conectada";
-      const btn = !dono ? "" : `<span class="l-btns">${l ? `<button type="button" class="link" data-desconectar="${loja}">Desconectar</button>` : ""}
-          <button type="button" class="btn" data-abrir="${loja}">${aberta === loja ? "Cancelar" : l ? "Reconectar" : "Conectar"}</button></span>`;
+      // Sincronizar: dono e quem pode atualizar; conectar e desconectar: só o dono
+      const sync = l ? `<button type="button" class="btn" data-sync="${loja}"${busy ? " disabled" : ""}>Sincronizar</button>` : "";
+      const btn = `<span class="l-btns">${dono && l ? `<button type="button" class="link" data-desconectar="${loja}">Desconectar</button>` : ""}
+          ${dono ? `<button type="button" class="btn" data-abrir="${loja}">${aberta === loja ? "Cancelar" : l ? "Reconectar" : "Conectar"}</button>` : ""}${sync}</span>`;
       const form = aberta === loja ? `<form class="l-form" data-conectar="${loja}">${formHTML(loja)}
           <button class="btn accent" type="submit">${loja === "ubisoft" && ubi2fa ? "Confirmar código" : `Conectar ${nome}`}</button></form>` : "";
       return `<li class="l-row${l ? " on" : ""}">
@@ -317,6 +319,7 @@ async function rebuildLibrary(progress) {
 
   $l("l-list").addEventListener("click", async (e) => {
     const t = e.target;
+    if (t.dataset.sync) { sincronizar([t.dataset.sync]); return; }
     if (t.dataset.abrir) { aberta = aberta === t.dataset.abrir ? null : t.dataset.abrir; ubi2fa = false; render(); return; }
     if (t.dataset.desconectar) {
       const loja = t.dataset.desconectar;
@@ -359,15 +362,15 @@ async function rebuildLibrary(progress) {
       aberta = null;
       ubi2fa = false;
       await loadLojas();
-      progress(`${LOJAS[loja].nome} conectada (${r.conta}). Agora clique em “Sincronizar lojas”.`, null);
+      progress(`${LOJAS[loja].nome} conectada (${r.conta}). Agora clique em “Sincronizar” ao lado dela.`, null);
       $l("u-status").classList.add("ok");
     });
   });
 
-  $l("l-sync").addEventListener("click", () => run(async () => {
+  // Baixa as lojas pedidas, completa capas e descrições e remonta a biblioteca (com as outras lojas como estão)
+  const sincronizar = (lista) => run(async () => {
     const erros = [];
-    for (const loja of Object.keys(LOJAS)) {
-      if (!lojas.has(loja)) continue;
+    for (const loja of lista) {
       progress(`Baixando a lista de jogos da ${LOJAS[loja].nome}…`, null);
       try {
         const r = await Nuvem.lojasAcao({ acao: "sincronizar", loja });
@@ -391,5 +394,6 @@ async function rebuildLibrary(progress) {
       $l("u-status").textContent += ` Com erro: ${erros.join(" · ")}`;
       $l("u-status").className = "u-status err";
     }
-  }));
+  });
+  $l("l-sync").addEventListener("click", () => sincronizar(Object.keys(LOJAS).filter((loja) => lojas.has(loja))));
 })();
