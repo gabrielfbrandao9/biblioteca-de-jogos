@@ -176,7 +176,7 @@ async function epicSync(): Promise<Item[]> {
   const records: any[] = [];
   let cursor = "";
   for (let page = 0; page < 50; page++) {
-    const j = await getJSON(`${EPIC_LIBRARY}/items?includeMetadata=true${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { headers }, "A Epic");
+    const j = await getJSON(`${EPIC_LIBRARY}/items?includeMetadata=true&platform=Windows${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`, { headers }, "A Epic");
     records.push(...(j.records || []));
     cursor = j.responseMetadata?.nextCursor || "";
     if (!cursor) break;
@@ -674,7 +674,8 @@ async function eaOwned(token: string, maxPages = 50) {
     next = owned.next || null;
     if (!next) break;
   }
-  return items.filter((e) => e.originOfferId && (!e.product?.baseItem?.gameType || e.product.baseItem.gameType === "BASE_GAME"));
+  // Só jogos base, como o Lutris: DLC e itens sem produto ficam de fora
+  return items.filter((e) => e.originOfferId && e.product?.baseItem?.gameType === "BASE_GAME");
 }
 async function eaSync(): Promise<Item[]> {
   const t = await lerToken("ea");
