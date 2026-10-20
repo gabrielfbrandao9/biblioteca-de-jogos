@@ -277,8 +277,12 @@ async function rebuildLibrary(progress) {
         : "não conectada";
       // Sincronizar: dono e quem pode atualizar; conectar e desconectar: só o dono
       const sync = l ? `<button type="button" class="btn" data-sync="${loja}"${busy ? " disabled" : ""}>Sincronizar</button>` : "";
-      const btn = `<span class="l-btns">${dono && l ? `<button type="button" class="link" data-desconectar="${loja}">Desconectar</button>` : ""}
-          ${dono ? `<button type="button" class="btn" data-abrir="${loja}">${aberta === loja ? "Cancelar" : l ? "Reconectar" : "Conectar"}</button>` : ""}${sync}</span>`;
+      const botoes = [
+        sync,
+        dono ? `<button type="button" class="btn" data-abrir="${loja}">${aberta === loja ? "Cancelar" : l ? "Reconectar" : "Conectar"}</button>` : "",
+        dono && l ? `<button type="button" class="link" data-desconectar="${loja}">Desconectar</button>` : "",
+      ].join("");
+      const btn = botoes ? `<span class="l-btns">${botoes}</span>` : "";
       const form = aberta === loja ? `<form class="l-form" data-conectar="${loja}">${formHTML(loja)}
           <button class="btn accent" type="submit">${loja === "ubisoft" && ubi2fa ? "Confirmar código" : `Conectar ${nome}`}</button></form>` : "";
       return `<li class="l-row${l ? " on" : ""}">

@@ -316,7 +316,7 @@ select {
 }
 
 /* ---------- Atualizar ---------- */
-.updater { width: min(560px, calc(100vw - 32px)); padding: 26px 28px 22px; }
+.updater { width: min(620px, calc(100vw - 32px)); padding: 26px 28px 22px; }
 .updater h2 { margin: 0; font: 800 24px var(--display); letter-spacing: -.02em; }
 .u-lead { color: var(--muted); margin: 8px 0 18px; }
 .u-step { border: 1px solid var(--line); border-radius: var(--radius); background: var(--panel); margin-bottom: 10px; }
@@ -332,18 +332,22 @@ select {
 
 /* ---------- Lojas ---------- */
 .l-list { list-style: none; margin: 8px 0 12px; padding: 0; }
+/* Cada loja: selo | informações, e os botões embaixo das informações */
 .l-row {
-  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px;
-  padding: 10px 0; border-top: 1px solid var(--line);
+  display: grid; grid-template-columns: 124px minmax(0, 1fr); align-items: center; gap: 8px 12px;
+  padding: 12px 0; border-top: 1px solid var(--line);
 }
 .l-row:first-child { border-top: 0; }
-.l-name { font-size: 11px; padding: 4px 7px; min-width: 64px; text-align: center; }
+.l-name { font-size: 11px; padding: 4px 7px; text-align: center; justify-self: stretch; white-space: normal; }
 .l-row:not(.on) .l-name { opacity: .55; }
-.l-info { flex: 1; min-width: 0; color: var(--muted); font-size: 13px; display: flex; flex-direction: column; overflow-wrap: anywhere; }
+/* Não conectada: o botão Conectar fica na mesma linha */
+.l-row:not(.on) { grid-template-columns: 124px minmax(0, 1fr) auto; }
+.l-row:not(.on) .l-btns { grid-column: 3; }
+.l-info { min-width: 0; color: var(--muted); font-size: 13px; line-height: 1.45; overflow-wrap: break-word; }
 .l-info b { color: var(--text); font-weight: 600; }
-.l-err { color: #ef7d6b; }
+.l-err { display: block; margin-top: 2px; color: #ef7d6b; }
 .l-row .btn { height: 32px; }
-.l-form { flex-basis: 100%; display: grid; gap: 8px; margin-top: 4px; padding: 10px 12px; background: var(--bg); border-radius: 8px; }
+.l-form { grid-column: 1 / -1; display: grid; gap: 8px; margin-top: 4px; padding: 10px 12px; background: var(--bg); border-radius: 8px; }
 .l-form ol { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
 .l-form li + li { margin-top: 4px; }
 .l-form code { font-size: 12px; }
@@ -556,7 +560,8 @@ dialog[open] { animation: pop .22s ease; }
 }
 
 /* Lojas: botões, avisos e caixas de marcar */
-.l-btns { display: flex; align-items: center; gap: 10px; }
+.l-btns { grid-column: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+.l-btns:empty { display: none; }
 .l-note { margin: 0; color: var(--muted); font-size: 13px; }
 .l-checks { display: grid; gap: 6px; font-size: 14px; }
 .l-checks label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
@@ -566,3 +571,8 @@ dialog[open] { animation: pop .22s ease; }
 .c-backup h3 { margin: 0; font: 700 17px var(--display); }
 .c-backup .u-lead { font-size: 14px; margin: 4px 0 10px; }
 .c-backup-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 520px) {
+  .l-row, .l-row:not(.on) { grid-template-columns: 1fr; }
+  .l-name { justify-self: start; }
+  .l-btns, .l-row:not(.on) .l-btns { grid-column: 1; }
+}
