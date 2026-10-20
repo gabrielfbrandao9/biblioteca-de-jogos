@@ -117,17 +117,63 @@ async function steamOwned(chave: string, steamid: string) {
   }
   return (r.response.games || []) as any[];
 }
-// Cookie de login do site da Steam (opcional): a API oficial não lista jogos grátis nunca abertos, demos e testes;
-// a lista completa da conta (rgOwnedApps) só vem da página da loja com o login.
-function steamCookie(raw: string) {
-  const v = raw.trim().replace(/^cookie:\s*/i, "");
-  const m = /steamLoginSecure=([^;\s]+)/.exec(v);
-  return m ? m[1] : (/^[^=;\s]+$/.test(v) ? v : "");
+// Cookie do site da Steam (opcional): a API oficial não lista jogos grátis nunca abertos, demos e testes;
+// a lista completa da conta (rgOwnedApps) só vem da loja com o login. Aceita dois cookies:
+//   steamRefresh_steam (login.steampowered.com): dura meses; a cada sincronização gera um steamLoginSecure novo
+//   steamLoginSecure (store.steampowered.com): dura ~1 dia
+function jwtPayload(tok: string) {
+  try {
+    const p = tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(p + "===".slice((p.length + 3) % 4)));
+  } catch {
+    return null;
+  }
 }
-async function steamOwnedApps(cookie: string): Promise<number[]> {
+function steamCookie(raw: string) {
+  let v = raw.trim().replace(/^cookie:\s*/i, "");
+  const m = /(?:steamRefresh_steam|steamLoginSecure)=([^;\s]+)/.exec(v);
+  if (m) v = m[1];
+  try { v = decodeURIComponent(v); } catch { /* já decodificado */ }
+  const [steamid, jwt] = v.includes("||") ? v.split("||") : ["", v];
+  const p = jwtPayload(jwt);
+  if (!p?.sub) return null;
+  const aud: string[] = Array.isArray(p.aud) ? p.aud : [p.aud];
+  return { steamid: steamid || p.sub, jwt, refresh: aud.includes("derive"), exp: p.exp ? p.exp * 1000 : 0 };
+}
+const multipart = (o: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.append(k, v); return f; };
+// Mesmo caminho do navegador (e do steam-session): o token de renovação vira um steamLoginSecure da loja
+async function steamLoginSecure(c: { steamid: string; jwt: string; refresh: boolean; exp: number }) {
+  if (!c.refresh) {
+    if (c.exp && c.exp < Date.now()) throw new Erro("O cookie steamLoginSecure venceu (ele dura ~1 dia). Use o steamRefresh_steam, que dura meses (veja as instruções), e reconecte.");
+    return encodeURIComponent(`${c.steamid}||${c.jwt}`);
+  }
+  if (c.exp && c.exp < Date.now()) throw new Erro("O cookie steamRefresh_steam venceu. Entre de novo na Steam pelo navegador, copie o novo e reconecte.");
+  const sessionid = hex(crypto.getRandomValues(new Uint8Array(12)));
+  const fin = await getJSON("https://login.steampowered.com/jwt/finalizelogin", {
+    method: "POST",
+    headers: { Origin: "https://store.steampowered.com", Referer: "https://store.steampowered.com/", "User-Agent": BROWSER_UA },
+    body: multipart({ nonce: c.jwt, sessionid, redir: "https://store.steampowered.com/login/home/?goto=" }),
+  }, "O login da Steam");
+  if (fin.error) throw new Erro(`A Steam recusou o cookie de renovação (erro ${fin.error}). Copie de novo e reconecte.`);
+  const loja = (fin.transfer_info || []).find((t: any) => /store\.steampowered\.com/.test(t.url));
+  if (!loja) throw new Erro("A Steam não devolveu o login da loja. Copie o cookie de novo e reconecte.");
+  const res = await fetch(loja.url, { method: "POST", body: multipart({ steamID: fin.steamID || c.steamid, ...loja.params }), redirect: "manual" });
+  await res.body?.cancel();
+  for (const ck of res.headers.getSetCookie()) {
+    const m = /^steamLoginSecure=([^;]+)/.exec(ck);
+    if (m) return m[1];
+  }
+  throw new Erro("A Steam não devolveu o steamLoginSecure. Copie o cookie de novo e reconecte.");
+}
+async function steamOwnedApps(c: { steamid: string; jwt: string; refresh: boolean; exp: number }): Promise<number[]> {
+  const secure = await steamLoginSecure(c);
   const res = await fetch("https://store.steampowered.com/dynamicstore/userdata/", {
-    headers: { Cookie: `steamLoginSecure=${cookie}`, "User-Agent": BROWSER_UA, Accept: "application/json" },
+    headers: { Cookie: `steamLoginSecure=${secure}`, "User-Agent": BROWSER_UA, Accept: "application/json" }, redirect: "manual",
   });
+  if (res.status >= 300 && res.status < 400) {
+    await res.body?.cancel();
+    throw new Erro("A loja da Steam não aceitou o cookie (venceu ou é de outro site). Copie o steamRefresh_steam de novo e reconecte.");
+  }
   const j = await res.json().catch(() => ({}));
   const apps = (j.rgOwnedApps || []) as number[];
   if (!res.ok || !apps.length) throw new Erro("O cookie da Steam venceu ou está errado: os jogos grátis nunca abertos e as demos não vieram. Clique em “Reconectar” e cole um cookie novo.");
@@ -165,8 +211,8 @@ async function steamConectar(body: any) {
     steamid = await steamId(chave, String(body.perfil || ""));
     await steamOwned(chave, steamid);
   }
-  const cookie = body.cookie ? steamCookie(String(body.cookie)) : atual?.dados?.cookie || "";
-  if (body.cookie && !cookie) throw new Erro("Cole o valor do cookie steamLoginSecure (ou a linha inteira com steamLoginSecure=…).");
+  const cookie = body.cookie ? steamCookie(String(body.cookie)) : atual?.dados?.cookie || null;
+  if (body.cookie && !cookie) throw new Erro("Esse texto não parece um cookie da Steam. Cole o valor de steamRefresh_steam (ou de steamLoginSecure).");
   if (body.cookie) await steamOwnedApps(cookie);
   const s = await steamApi("ISteamUser/GetPlayerSummaries/v2", { key: chave, steamids: steamid });
   await salvarToken("steam", cookie ? { chave, steamid, cookie } : { chave, steamid });
@@ -183,7 +229,9 @@ async function steamSync(): Promise<Item[]> {
   if (t.cookie) {
     try {
       const have = new Set(games.map((g) => g.appid));
-      const extras = (await steamOwnedApps(t.cookie)).filter((id) => !have.has(id));
+      const cookie = typeof t.cookie === "string" ? steamCookie(t.cookie) : t.cookie;
+      if (!cookie) throw new Erro("O cookie da Steam guardado é inválido. Clique em “Reconectar” e cole o steamRefresh_steam.");
+      const extras = (await steamOwnedApps(cookie)).filter((id) => !have.has(id));
       const nomes = await steamNomes(extras);
       for (const [appid, nome] of nomes) {
         items.push({ loja: "steam", id_loja: String(appid), nome: cleanName(nome), playtime: 0, ultima_vez: null, adicionado: null, extra: {} });

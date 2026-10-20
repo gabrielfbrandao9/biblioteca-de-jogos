@@ -21,7 +21,7 @@ As lojas são conectadas uma vez, pelo dono, na mesma tela:
 
 | Loja | Como conecta | Horas jogadas |
 |------|--------------|---------------|
-| Steam | Chave da API (steamcommunity.com/dev/apikey) + link do perfil, com "Detalhes dos jogos" público. Opcional: cookie `steamLoginSecure` do site da loja, para trazer também jogos grátis nunca abertos, demos e testes (vence de tempos em tempos) | sim |
+| Steam | Chave da API (steamcommunity.com/dev/apikey) + link do perfil, com "Detalhes dos jogos" público. Opcional: cookie `steamRefresh_steam` (login.steampowered.com, dura meses) para trazer também jogos grátis nunca abertos, demos e testes | sim |
 | Epic | Login da Epic → cola o texto com `authorizationCode` (mesmo método do Heroic/Legendary) | sim |
 | GOG | Login do GOG → cola o endereço da página `on_login_success` (mesmo método do GOG Galaxy) | só se o GOG liberar as estatísticas do perfil |
 | Amazon | Login da Amazon → cola o endereço da página que abre depois (mesmo método do Nile) | não |

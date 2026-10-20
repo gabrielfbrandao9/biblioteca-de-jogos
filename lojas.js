@@ -200,11 +200,14 @@ async function rebuildLibrary(progress) {
       ${lojas.has("steam") ? `<p class="l-note">Já conectada: deixe a chave e o perfil em branco para trocar só o cookie.</p>` : ""}
       <input data-f="chave" type="text" placeholder="chave da API (32 letras e números)" autocomplete="off" spellcheck="false">
       <input data-f="perfil" type="text" placeholder="link do perfil (steamcommunity.com/id/…)" autocomplete="off" spellcheck="false">
-      <p class="l-note"><b>Opcional</b>: a chave não mostra jogos grátis que você nunca abriu, demos e testes. Para trazê-los, entre em
-        <a href="https://store.steampowered.com/" target="_blank" rel="noopener noreferrer">store.steampowered.com</a>, aperte <b>F12</b> →
-        aba <b>Aplicativo</b> (Application) → <b>Cookies</b> → <code>https://store.steampowered.com</code>, copie o valor de
-        <code>steamLoginSecure</code> e cole abaixo. Ele vence de tempos em tempos: aí é só reconectar com um novo.</p>
-      <textarea data-f="cookie" rows="2" placeholder="valor do steamLoginSecure (opcional)" spellcheck="false"></textarea>`;
+      <p class="l-note"><b>Opcional</b>: a chave não mostra jogos grátis que você nunca abriu, demos e testes. Para trazê-los:</p>
+      <ol>
+        <li>Entre na sua conta em <a href="https://store.steampowered.com/" target="_blank" rel="noopener noreferrer">store.steampowered.com</a>.</li>
+        <li>Na mesma janela, <a href="https://login.steampowered.com/jwt/finalizelogin" target="_blank" rel="noopener noreferrer">abra esta página do login da Steam</a> (mostra só um texto curto).</li>
+        <li>Aperte <b>F12</b> → aba <b>Aplicativo</b> (Application) → <b>Cookies</b> → <code>https://login.steampowered.com</code>,
+          copie o valor de <code>steamRefresh_steam</code> e cole abaixo. Ele dura meses.</li>
+      </ol>
+      <textarea data-f="cookie" rows="2" placeholder="valor do steamRefresh_steam (opcional)" spellcheck="false"></textarea>`;
     if (loja === "epic") return `
       <ol>
         <li><a href="${EPIC_LOGIN}" target="_blank" rel="noopener noreferrer">Abra o login da Epic</a> e entre na sua conta.</li>
