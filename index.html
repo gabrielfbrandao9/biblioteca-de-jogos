@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://shared.akamai.steamstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=15">
+  <link rel="stylesheet" href="styles.css?v=16">
 </head>
 <body>
   <!-- Entrada: carregando, login ou sem acesso -->
@@ -154,6 +154,16 @@
   <dialog id="conta" class="updater conta" aria-labelledby="c-title">
     <h2 id="c-title">Conta</h2>
     <div class="c-user" id="c-user"></div>
+    <section class="c-backup">
+      <h3>Baixar backup</h3>
+      <p class="u-lead">A lista inteira de jogos, como está agora no site.</p>
+      <div class="c-backup-btns">
+        <button class="btn" type="button" data-backup="json" title="Tudo, com as descrições; serve para guardar ou restaurar">JSON</button>
+        <button class="btn" type="button" data-backup="csv" title="Abre no Excel ou no Planilhas Google">CSV (planilha)</button>
+        <button class="btn" type="button" data-backup="html" title="Página para abrir no navegador ou imprimir">HTML (página)</button>
+      </div>
+      <p class="u-status" id="c-backup-status" aria-live="polite"></p>
+    </section>
     <section class="c-acesso" id="c-acesso" hidden>
       <h3>Quem tem acesso</h3>
       <p class="u-lead">Só entra quem está nesta lista, com a conta Google do e-mail. <b>Só ver</b> abre a biblioteca; <b>Pode atualizar</b> também sincroniza as lojas.</p>
@@ -176,10 +186,11 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=15"></script>
-  <script src="nuvem.js?v=15"></script>
-  <script src="app.js?v=15"></script>
-  <script src="lojas.js?v=15"></script>
-  <script src="entrada.js?v=15"></script>
+  <script src="config.js?v=16"></script>
+  <script src="nuvem.js?v=16"></script>
+  <script src="app.js?v=16"></script>
+  <script src="lojas.js?v=16"></script>
+  <script src="backup.js?v=16"></script>
+  <script src="entrada.js?v=16"></script>
 </body>
 </html>

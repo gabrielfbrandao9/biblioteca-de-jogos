@@ -56,3 +56,4 @@ e o resto continua funcionando.
 - **Sortear**: escolhe um jogo aleatório entre os filtrados (ótimo para o backlog)
 - Página de detalhes com banner, descrição e links; setas ← → navegam entre jogos
 - Filtros e jogo aberto ficam na URL (o link só abre para quem tem acesso)
+- **Baixar backup** (em Conta): JSON completo (com as descrições), CSV para planilha (Excel abre direto) ou HTML para ler e imprimir

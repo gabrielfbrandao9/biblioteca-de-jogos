@@ -59,6 +59,14 @@ const Nuvem = (() => {
         .upsert({ id: 1, dados, atualizado_em: new Date().toISOString() })
         .select("atualizado_em").single());
     },
+    // Map id -> html de várias descrições (para o backup)
+    async descricoes(ids) {
+      const out = new Map();
+      for (const part of chunks(ids, 150)) {
+        for (const r of check(await client.from("jogos_descricoes").select("id, html").in("id", part))) out.set(r.id, r.html);
+      }
+      return out;
+    },
     async descricao(id) {
       const row = check(await client.from("jogos_descricoes").select("html").eq("id", id).maybeSingle());
       return row ? row.html : "";

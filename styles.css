@@ -560,3 +560,9 @@ dialog[open] { animation: pop .22s ease; }
 .l-note { margin: 0; color: var(--muted); font-size: 13px; }
 .l-checks { display: grid; gap: 6px; font-size: 14px; }
 .l-checks label { display: flex; align-items: center; gap: 8px; cursor: pointer; }
+
+/* Conta: backup */
+.c-backup { margin-top: 18px; }
+.c-backup h3 { margin: 0; font: 700 17px var(--display); }
+.c-backup .u-lead { font-size: 14px; margin: 4px 0 10px; }
+.c-backup-btns { display: flex; flex-wrap: wrap; gap: 8px; }

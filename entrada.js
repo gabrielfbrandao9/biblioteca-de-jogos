@@ -143,6 +143,22 @@ Nuvem.onAuthChange((u) => {
     try { acessos = await Nuvem.acessos(); renderList(); } catch (err) { status(errMsg(err), "err"); }
   });
   $c("c-close").addEventListener("click", () => dlg.close());
+
+  dlg.addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-backup]");
+    if (!btn) return;
+    const msg = (text, kind = "") => { $c("c-backup-status").textContent = text; $c("c-backup-status").className = `u-status ${kind}`; };
+    if (!games.length) return msg("A biblioteca está vazia: nada para baixar.", "err");
+    btn.disabled = true;
+    try {
+      await Backup[btn.dataset.backup](msg);
+      msg(`Backup em ${btn.dataset.backup.toUpperCase()} baixado (${nf.format(games.length)} jogos).`, "ok");
+    } catch (err) {
+      msg(`Não foi possível gerar o backup: ${err.message}`, "err");
+    } finally {
+      btn.disabled = false;
+    }
+  });
   $c("c-sair").addEventListener("click", () => { dlg.close(); logout(); });
 
   $c("c-form").addEventListener("submit", async (e) => {
