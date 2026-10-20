@@ -551,44 +551,88 @@ async function psnSync(): Promise<Item[]> {
   const t = await lerToken("psn");
   const j = await psnToken({ refresh_token: t.refresh_token, grant_type: "refresh_token", scope: PSN_SCOPE });
   if (j.refresh_token) await salvarToken("psn", { refresh_token: j.refresh_token });
-  const headers = { Authorization: `Bearer ${j.access_token}`, "Accept-Language": "pt-BR" };
-  const plat = (p: string) => (/ps5/i.test(p) ? "Sony PlayStation 5" : /ps4/i.test(p) ? "Sony PlayStation 4" : null);
+  const headers = { Authorization: `Bearer ${j.access_token}`, "Accept-Language": "pt-BR", Accept: "application/json" };
+  const plat = (p: string) =>
+    (/ps5/i.test(p) ? "Sony PlayStation 5" : /ps4/i.test(p) ? "Sony PlayStation 4" : /ps3/i.test(p) ? "Sony PlayStation 3" : /vita/i.test(p) ? "Sony PlayStation Vita" : null);
   const byTitle = new Map<string, Item>();
+  const conta: Record<string, number | string> = {};
+  // GraphQL da PlayStation: o Content-Type JSON é obrigatório (sem ele a Sony barra como CSRF)
+  const gql = (operationName: string, variables: unknown, hash: string) =>
+    getJSON("https://web.np.playstation.com/api/graphql/v1/op?operationName=" + operationName +
+      `&variables=${encodeURIComponent(JSON.stringify(variables))}` +
+      `&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: hash } }))}`,
+      { headers: { ...headers, "Content-Type": "application/json" } }, "A PlayStation");
+  const add = (id: string, nome: string, extra: Record<string, unknown>, playtime = 0, ultima: string | null = null) => {
+    if (!id || !nome) return;
+    const old = byTitle.get(id);
+    byTitle.set(id, {
+      loja: "psn", id_loja: id, nome: cleanName(nome), playtime: Math.max(playtime, old?.playtime || 0),
+      ultima_vez: ultima || old?.ultima_vez || null, adicionado: null,
+      extra: { cover: extra.cover || old?.extra.cover || null, platforms: (extra.platforms as string[])?.length ? extra.platforms : old?.extra.platforms || [] },
+    });
+  };
 
-  // Jogos comprados (inclui os que nunca foram abertos)
+  // 1. Jogos comprados (inclui os que nunca foram abertos)
   try {
+    let n = 0;
     for (let start = 0; start < 5000; start += 100) {
-      const url = "https://web.np.playstation.com/api/graphql/v1/op?operationName=getPurchasedGameList" +
-        `&variables=${encodeURIComponent(JSON.stringify({ isActive: true, platform: ["ps4", "ps5"], size: 100, start, sortBy: "ACTIVE_DATE", sortDirection: "desc" }))}` +
-        `&extensions=${encodeURIComponent(JSON.stringify({ persistedQuery: { version: 1, sha256Hash: "827a423f6a8ddca4107ac01395af2ec0eafd8396fc7fa204aaf9b7ed2eefa168" } }))}`;
-      const r = await getJSON(url, { headers }, "A PlayStation");
+      const r = await gql("getPurchasedGameList", { isActive: true, platform: ["ps4", "ps5"], size: 100, start, sortBy: "ACTIVE_DATE", sortDirection: "desc" },
+        "827a423f6a8ddca4107ac01395af2ec0eafd8396fc7fa204aaf9b7ed2eefa168");
       const games = r.data?.purchasedTitlesRetrieve?.games || [];
-      for (const g of games) {
-        if (!g.titleId || byTitle.has(g.titleId)) continue;
-        byTitle.set(g.titleId, {
-          loja: "psn", id_loja: g.titleId, nome: cleanName(g.name || g.titleId), playtime: 0, ultima_vez: null, adicionado: null,
-          extra: { cover: g.image?.url || null, platforms: [plat(g.platform || "")].filter(Boolean) },
-        });
-      }
+      for (const g of games) add(g.titleId, g.name, { cover: g.image?.url, platforms: [plat(g.platform || "")].filter(Boolean) });
+      n += games.length;
       if (games.length < 100) break;
     }
+    conta.comprados = n;
   } catch (err) {
-    console.warn("PSN comprados:", err);
+    conta.comprados = String((err as Error).message).slice(0, 120);
   }
-  // Jogos jogados, com horas
-  for (let offset = 0; offset < 5000;) {
-    const r = await getJSON(`https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=${offset}`, { headers }, "A PlayStation");
-    for (const g of r.titles || []) {
-      const old = byTitle.get(g.titleId);
-      byTitle.set(g.titleId, {
-        loja: "psn", id_loja: g.titleId, nome: cleanName(g.localizedName || g.name || old?.nome || g.titleId),
-        playtime: isoDuration(g.playDuration), ultima_vez: g.lastPlayedDateTime || null, adicionado: null,
-        extra: { cover: g.localizedImageUrl || g.imageUrl || old?.extra.cover || null, platforms: [plat(g.category || "")].filter(Boolean) },
-      });
+  // 2. Biblioteca do app PlayStation (jogados, inclusive PS Plus)
+  try {
+    const r = await gql("getUserGameList", { categories: "ps4_game,ps5_native_game", limit: 250 }, "e780a6d8b921ef0c59ec01ea5c5255671272ca0d819edb61320914cf7a78b3ae");
+    const games = r.data?.gameLibraryTitlesRetrieve?.games || [];
+    for (const g of games) add(g.titleId, g.name, { cover: g.image?.url, platforms: [plat(g.platform || "")].filter(Boolean) }, 0, g.lastPlayedDateTime || null);
+    conta.biblioteca = games.length;
+  } catch (err) {
+    conta.biblioteca = String((err as Error).message).slice(0, 120);
+  }
+  // 3. Jogados, com horas
+  try {
+    let n = 0;
+    for (let offset = 0; offset < 5000;) {
+      const r = await getJSON(`https://m.np.playstation.com/api/gamelist/v2/users/me/titles?categories=ps4_game,ps5_native_game&limit=200&offset=${offset}`, { headers }, "A PlayStation");
+      for (const g of r.titles || []) {
+        add(g.titleId, g.localizedName || g.name, { cover: g.localizedImageUrl || g.imageUrl, platforms: [plat(g.category || "")].filter(Boolean) },
+          isoDuration(g.playDuration), g.lastPlayedDateTime || null);
+      }
+      n += (r.titles || []).length;
+      if (!r.nextOffset || !(r.titles || []).length) break;
+      offset = r.nextOffset;
     }
-    if (!r.nextOffset || !(r.titles || []).length) break;
-    offset = r.nextOffset;
+    conta.jogados = n;
+  } catch (err) {
+    conta.jogados = String((err as Error).message).slice(0, 120);
   }
+  // 4. Troféus: pega também PS3 e Vita (só os que ainda não apareceram pelo nome)
+  try {
+    const r = await getJSON("https://m.np.playstation.com/api/trophy/v1/users/me/trophyTitles?limit=800", { headers }, "A PlayStation");
+    const key = (n: string) => n.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, " ").trim();
+    const nomes = new Set([...byTitle.values()].map((i) => key(i.nome)));
+    let n = 0;
+    for (const g of r.trophyTitles || []) {
+      if (!g.trophyTitleName || nomes.has(key(cleanName(g.trophyTitleName)))) continue;
+      nomes.add(key(cleanName(g.trophyTitleName)));
+      add(g.npCommunicationId, g.trophyTitleName, {
+        cover: g.trophyTitleIconUrl, platforms: String(g.trophyTitlePlatform || "").split(",").map(plat).filter(Boolean),
+      }, 0, g.lastUpdatedDateTime || null);
+      n++;
+    }
+    conta.trofeus = n;
+  } catch (err) {
+    conta.trofeus = String((err as Error).message).slice(0, 120);
+  }
+  console.log("PSN fontes:", JSON.stringify(conta));
+  if (!byTitle.size) throw new Erro(`A PlayStation não devolveu nenhum jogo (${JSON.stringify(conta)}).`, 502);
   return [...byTitle.values()];
 }
 
