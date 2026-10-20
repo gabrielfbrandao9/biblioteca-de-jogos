@@ -165,18 +165,53 @@ async function steamLoginSecure(c: { steamid: string; jwt: string; refresh: bool
   }
   throw new Erro("A Steam não devolveu o steamLoginSecure. Copie o cookie de novo e reconecte.");
 }
-async function steamOwnedApps(c: { steamid: string; jwt: string; refresh: boolean; exp: number }): Promise<number[]> {
-  const secure = await steamLoginSecure(c);
-  const res = await fetch("https://store.steampowered.com/dynamicstore/userdata/", {
-    headers: { Cookie: `steamLoginSecure=${secure}`, "User-Agent": BROWSER_UA, Accept: "application/json" }, redirect: "manual",
-  });
-  if (res.status >= 300 && res.status < 400) {
-    await res.body?.cancel();
-    throw new Erro("A loja da Steam não aceitou o cookie (venceu ou é de outro site). Copie o steamRefresh_steam de novo e reconecte.");
+// Como o navegador: segue os redirecionamentos da Steam guardando os cookies de cada site. Quando o login da loja
+// vence, a loja manda para login.steampowered.com/jwt/refresh, que usa o steamRefresh_steam para renovar.
+async function steamComCookies(url: string, jar: Map<string, Map<string, string>>, trilha: string[]) {
+  for (let i = 0; i < 12; i++) {
+    const host = new URL(url).host;
+    const cookies: string[] = [];
+    for (const [dom, vals] of jar) {
+      if (host === dom || host.endsWith(`.${dom}`)) for (const [k, v] of vals) cookies.push(`${k}=${v}`);
+    }
+    const res = await fetch(url, { headers: { Cookie: cookies.join("; "), "User-Agent": BROWSER_UA, Accept: "application/json, text/html" }, redirect: "manual" });
+    for (const ck of res.headers.getSetCookie()) {
+      const m = /^([^=]+)=([^;]*)/.exec(ck);
+      if (!m) continue;
+      const dom = (/;\s*domain=\.?([^;]+)/i.exec(ck)?.[1] || host).toLowerCase();
+      if (!jar.has(dom)) jar.set(dom, new Map());
+      if (/expires=Thu, 01 Jan 1970/i.test(ck) || m[2] === "deleted") jar.get(dom)!.delete(m[1]);
+      else jar.get(dom)!.set(m[1], m[2]);
+    }
+    trilha.push(`${res.status} ${host}${new URL(url).pathname}`);
+    if (res.status >= 300 && res.status < 400 && res.headers.get("location")) {
+      await res.body?.cancel();
+      url = new URL(res.headers.get("location")!, url).href;
+      continue;
+    }
+    return res;
   }
+  throw new Erro("A Steam ficou redirecionando sem parar. Copie o steamRefresh_steam de novo e reconecte.");
+}
+async function steamOwnedApps(c: { steamid: string; jwt: string; refresh: boolean; exp: number }): Promise<number[]> {
+  const sessionid = hex(crypto.getRandomValues(new Uint8Array(12)));
+  const jar = new Map<string, Map<string, string>>([["store.steampowered.com", new Map([["sessionid", sessionid]])]]);
+  if (c.refresh) {
+    jar.set("login.steampowered.com", new Map([["steamRefresh_steam", encodeURIComponent(`${c.steamid}||${c.jwt}`)]]));
+    try {
+      jar.get("store.steampowered.com")!.set("steamLoginSecure", await steamLoginSecure(c));
+    } catch (err) {
+      console.warn("Steam finalizelogin:", (err as Error).message); // a renovação pelo redirecionamento ainda pode funcionar
+    }
+  } else {
+    jar.get("store.steampowered.com")!.set("steamLoginSecure", await steamLoginSecure(c));
+  }
+  const trilha: string[] = [];
+  const res = await steamComCookies("https://store.steampowered.com/dynamicstore/userdata/", jar, trilha);
   const j = await res.json().catch(() => ({}));
   const apps = (j.rgOwnedApps || []) as number[];
-  if (!res.ok || !apps.length) throw new Erro("O cookie da Steam venceu ou está errado: os jogos grátis nunca abertos e as demos não vieram. Clique em “Reconectar” e cole um cookie novo.");
+  console.log("Steam userdata:", trilha.join(" > "), "apps:", apps.length);
+  if (!res.ok || !apps.length) throw new Erro("A loja da Steam não aceitou o cookie (venceu ou é de outro site). Copie o steamRefresh_steam de novo e reconecte.");
   return apps;
 }
 // Tipos da loja da Steam que entram: jogo, demo, mod, programa e teste (beta/playtest)
