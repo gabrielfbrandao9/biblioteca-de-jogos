@@ -457,8 +457,12 @@ async function xsts(accessToken: string) {
 }
 async function xboxConectar(body: any) {
   const raw = String(body.codigo || "");
-  const code = /[?&]code=([^&\s#]+)/.exec(raw)?.[1];
-  if (!code) throw new Erro("Cole o endereço da página em branco que abriu depois do login (oauth20_desktop.srf?code=…).");
+  const code = /[?&#]code=([^&\s#]+)/.exec(raw)?.[1];
+  if (!code) {
+    const erro = /[?&#]error_description=([^&\s#]+)/.exec(raw)?.[1];
+    if (erro) throw new Erro(`A Microsoft recusou o login: ${decodeURIComponent(erro.replace(/\+/g, " "))}`);
+    throw new Erro("Esse endereço não tem o código. Depois de entrar, clique na barra de endereço da página em branco, copie tudo (começa com https://login.live.com/oauth20_desktop.srf?code=) e cole.");
+  }
   const j = await msToken({ grant_type: "authorization_code", code: decodeURIComponent(code) });
   const s = await xsts(j.access_token);
   await salvarToken("xbox", { refresh_token: j.refresh_token });
@@ -597,56 +601,66 @@ async function eaConectar(body: any) {
   await salvarToken("ea", { token, colado_em: new Date().toISOString() });
   return conectada("ea", "token colado agora (vale ~1 hora)");
 }
+async function eaApi(token: string, query: string, variables: Record<string, unknown> = {}) {
+  const res = await fetch("https://service-aggregation-layer.juno.ea.com/graphql", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", "User-Agent": BROWSER_UA },
+    body: JSON.stringify({ query, variables }),
+  });
+  if (res.status === 401 || res.status === 403) throw new Erro("O token da EA venceu (dura ~1 hora). Clique em “Reconectar”, cole um token novo e sincronize de novo.");
+  const j = await res.json().catch(() => ({}));
+  if (!res.ok || j.errors) {
+    const msg = JSON.stringify(j.errors || j);
+    if (/unauthori|expired|invalid.?token/i.test(msg)) throw new Erro("O token da EA venceu (dura ~1 hora). Clique em “Reconectar”, cole um token novo e sincronize de novo.");
+    throw new Erro(`A EA respondeu ${res.status}: ${msg.slice(0, 200)}`, 502);
+  }
+  return j.data;
+}
+// Jogos da conta (só jogos base), em páginas de 100
 async function eaOwned(token: string, maxPages = 50) {
   const items: any[] = [];
   let next: string | null = null;
   for (let page = 0; page < maxPages; page++) {
-    const variables: Record<string, unknown> = {
-      isMac: false, addFieldsToPreloadGames: true, locale: "pt-BR", limit: 200,
-      type: ["DIGITAL_FULL_GAME", "PACKAGED_FULL_GAME"], entitlementEnabled: true, storefronts: ["EA"], platforms: ["PC"],
-    };
-    if (next) variables.next = next;
-    const res = await fetch("https://service-aggregation-layer.juno.ea.com/graphql", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json", Accept: "application/json", "User-Agent": BROWSER_UA },
-      body: JSON.stringify({
-        operationName: "getPreloadedOwnedGames", variables,
-        extensions: { persistedQuery: { version: 1, sha256Hash: "5de4178ee7e1f084ce9deca856c74a9e03547a67dfafc0cb844d532fb54ae73d" } },
-      }),
-    });
-    if (res.status === 401 || res.status === 403) throw new Erro("O token da EA venceu (dura ~1 hora). Clique em “Colar token novo” e sincronize de novo.");
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok || j.errors) throw new Erro(`A EA respondeu ${res.status}: ${JSON.stringify(j.errors || j).slice(0, 200)}`, 502);
-    const owned = j.data?.me?.preloadedOwnedGames || {};
+    const data = await eaApi(token, `query getEntitlements($limit: Int, $next: String) {
+      me { ownedGameProducts(locale: "DEFAULT", entitlementEnabled: true, storefronts: [EA],
+        type: [DIGITAL_FULL_GAME, PACKAGED_FULL_GAME], platforms: [PC], paging: { limit: $limit, next: $next }) {
+        next items { originOfferId product { baseItem { gameType } } } } } }`, { limit: 100, next });
+    const owned = data?.me?.ownedGameProducts || {};
     items.push(...(owned.items || []));
     next = owned.next || null;
-    if (!next || !(owned.items || []).length) break;
+    if (!next) break;
   }
-  return items;
+  return items.filter((e) => e.originOfferId && (!e.product?.baseItem?.gameType || e.product.baseItem.gameType === "BASE_GAME"));
 }
 async function eaSync(): Promise<Item[]> {
   const t = await lerToken("ea");
-  const seen = new Set<string>();
+  const offers = [...new Set((await eaOwned(t.token)).map((e) => String(e.originOfferId)))];
+  const img = (x: any) => { const p = x?.largestImage?.path; return typeof p === "string" && /^https?:/.test(p) ? p : null; };
   const items: Item[] = [];
-  for (const it of await eaOwned(t.token)) {
-    const p = it.product || {};
-    const name = p.name || p.baseItem?.title;
-    const id = String(it.originOfferId || it.id || name);
-    if (!name || seen.has(id)) continue;
-    seen.add(id);
-    items.push({
-      loja: "ea", id_loja: id, nome: cleanName(name), playtime: null, ultima_vez: null, adicionado: null,
-      extra: { releaseDate: p.lifecycleStatus?.[0]?.playableStartDate || null },
-    });
+  for (const part of chunks(offers, 100)) {
+    const data = await eaApi(t.token, `query getOffers($offerIds: [String!]!) {
+      gameProducts(offerIds: $offerIds, locale: "DEFAULT") { items { id originOfferId gameSlug
+        baseItem { title packArt { largestImage { path } } keyArt { largestImage { path } } } } } }`, { offerIds: part });
+    const found = new Set<string>();
+    for (const p of data?.gameProducts?.items || []) {
+      const id = String(p.originOfferId || p.id);
+      if (!p.baseItem?.title || found.has(id)) continue;
+      found.add(id);
+      items.push({
+        loja: "ea", id_loja: id, nome: cleanName(p.baseItem.title), playtime: null, ultima_vez: null, adicionado: null,
+        extra: { cover: img(p.baseItem.packArt), hero: img(p.baseItem.keyArt) },
+      });
+    }
   }
   return items;
 }
 
 // ---------- Ubisoft Connect (e-mail e senha; guarda só o "lembrar de mim") ----------
 const UBI_SESSIONS = "https://public-ubiservices.ubi.com/v3/profiles/sessions";
+// Mesmos cabeçalhos do Ubisoft Connect de PC (os do site caem na proteção contra robôs da Ubisoft)
 const UBI_HEADERS = {
-  "Ubi-AppId": "82b650c0-6cb3-40c0-9f41-25a53b62b206", "Content-Type": "application/json", "User-Agent": BROWSER_UA,
-  Origin: "https://connect.ubisoft.com", Referer: "https://connect.ubisoft.com/",
+  "Ubi-AppId": "f68a4bb5-608a-4ff2-8123-be8ef797e0a6", "Ubi-RequestedPlatformType": "uplay",
+  "Content-Type": "application/json", "User-Agent": "Massgate",
 };
 async function ubiSession(authorization: string, extra: Record<string, string> = {}) {
   const res = await fetch(UBI_SESSIONS, { method: "POST", headers: { ...UBI_HEADERS, Authorization: authorization, ...extra }, body: JSON.stringify({ rememberMe: true }) });
