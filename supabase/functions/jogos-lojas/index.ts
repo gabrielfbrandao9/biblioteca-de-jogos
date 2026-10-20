@@ -269,6 +269,7 @@ async function steamSync(): Promise<Item[]> {
       const extras = (await steamOwnedApps(cookie)).filter((id) => !have.has(id));
       const nomes = await steamNomes(extras);
       for (const [appid, nome] of nomes) {
+        if (have.has(appid)) continue; // a loja às vezes devolve o código de outro app que já veio pela API
         items.push({ loja: "steam", id_loja: String(appid), nome: cleanName(nome), playtime: 0, ultima_vez: null, adicionado: null, extra: {} });
       }
       console.log("Steam: API", games.length, "+ cookie", nomes.size, "de", extras.length);
@@ -369,7 +370,7 @@ async function epicSync(): Promise<Item[]> {
       console.warn("Epic catálogo", r.appName, err);
     }
   });
-  for (const part of chunks(novos, 300)) check(await admin.from("jogos_meta").upsert(part));
+  for (const part of chunks([...new Map(novos.map((n) => [n.chave, n])).values()], 300)) check(await admin.from("jogos_meta").upsert(part));
 
   const items: Item[] = [];
   for (const r of assets) {
@@ -1001,7 +1002,10 @@ const SYNC: Record<string, () => Promise<Item[]>> = {
 
 async function sincronizar(loja: string) {
   avisoSync = null;
-  const items = await SYNC[loja]();
+  // Sem repetidos: o banco não aceita gravar o mesmo jogo duas vezes no mesmo envio
+  const unicos = new Map<string, Item>();
+  for (const it of await SYNC[loja]()) if (!unicos.has(it.id_loja)) unicos.set(it.id_loja, it);
+  const items = [...unicos.values()];
   const agora = new Date().toISOString();
   for (const part of chunks(items.map((i) => ({ ...i, visto_em: agora })), 500)) check(await admin.from("jogos_itens").upsert(part));
   check(await admin.from("jogos_itens").delete().eq("loja", loja).lt("visto_em", agora));
