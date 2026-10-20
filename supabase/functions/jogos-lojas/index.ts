@@ -7,6 +7,7 @@
 //   desconectar              apaga token e jogos da loja (só dono)
 //   sincronizar              baixa a lista de jogos da loja para jogos_itens (dono e editor)
 //   metadados                completa capas/gêneros/descrições pelo GOG GamesDB, em lotes (dono e editor)
+//   hltb                     tempo para zerar (HowLongToBeat) de uma lista de jogos, em lotes (dono e editor)
 //
 // Os tokens ficam em jogos_tokens, que nenhum navegador lê: só esta função (service role).
 // Os métodos de login da Epic, GOG e Amazon são os mesmos dos apps Legendary/Heroic, gogdl e Nile.
@@ -352,7 +353,7 @@ async function epicSync(): Promise<Item[]> {
   await pool(missing, 12, async (r) => {
     try {
       const url = `https://catalog-public-service-prod06.ol.epicgames.com/catalog/api/shared/namespace/${r.namespace}/bulk/items` +
-        `?id=${r.catalogItemId}&includeDLCDetails=true&includeMainGameDetails=true&country=BR&locale=pt-BR`;
+        `?id=${r.catalogItemId}&includeDLCDetails=true&includeMainGameDetails=true&country=US&locale=en-US`;
       const item = (await getJSON(url, { headers }, "O catálogo da Epic"))[r.catalogItemId];
       if (!item) return;
       const images = Object.fromEntries((item.keyImages || []).map((k: any) => [k.type, k.url]));
@@ -1081,6 +1082,91 @@ async function metadados(limite: number) {
   return { feitos: metas.length, falhas, faltam: faltam.length - metas.length };
 }
 
+// ---------- tempo para zerar (HowLongToBeat; mesmo método do howlongtobeatpy) ----------
+const HLTB = "https://howlongtobeat.com";
+let hltbCache: { at: number; s: { path: string; token: string; key: string; val: string } } | null = null;
+async function hltbSessao() {
+  // A sessão vale alguns minutos; guardada para os lotes seguintes não refazerem tudo
+  if (hltbCache && Date.now() - hltbCache.at < 10 * 60_000) return hltbCache.s;
+  const headers = { "User-Agent": BROWSER_UA, Referer: `${HLTB}/` };
+  const html = await (await fetch(`${HLTB}/`, { headers })).text();
+  let path = "";
+  const srcs = [...new Set(html.match(/\/_next\/static\/chunks\/[^"']+\.js/g) || [])];
+  srcs.sort((x, y) => Number(y.includes("_app")) - Number(x.includes("_app")));
+  for (const src of srcs) {
+    const js = await (await fetch(HLTB + src, { headers })).text();
+    const m = /fetch\s*\(\s*["']\/api\/([a-zA-Z0-9_/]+)[^"']*["']\s*,\s*{[^}]*method:\s*["']POST["'][^}]*}/.exec(js);
+    if (m) { path = m[1]; break; }
+  }
+  if (!path) throw new Erro("O HowLongToBeat mudou o site e a busca deixou de funcionar.", 502);
+  const init = await getJSON(`${HLTB}/api/${path}/init?t=${Date.now()}`, { headers }, "O HowLongToBeat");
+  let key = "", val = "";
+  for (const [k, v] of Object.entries(init)) {
+    if (k === "token") continue;
+    if (/key/i.test(k)) key = String(v); else if (/val/i.test(k)) val = String(v);
+  }
+  const sessao = { path, token: String(init.token || ""), key, val };
+  hltbCache = { at: Date.now(), s: sessao };
+  return sessao;
+}
+const hkey = (n: string) => n.toLowerCase().replace(/[’'™®©]/g, "").normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+function dice(a: string, b: string) {
+  const bi = (s: string) => { const m = new Map<string, number>(); for (let i = 0; i < s.length - 1; i++) { const g = s.slice(i, i + 2); m.set(g, (m.get(g) || 0) + 1); } return m; };
+  const x = bi(a), y = bi(b);
+  let inter = 0, total = 0;
+  for (const [g, n] of x) { inter += Math.min(n, y.get(g) || 0); total += n; }
+  for (const n of y.values()) total += n;
+  return total ? (2 * inter) / total : 0;
+}
+async function hltb(itens: { chave: string; nome: string }[]) {
+  const s = await hltbSessao();
+  const metas: { chave: string; dados: unknown }[] = [];
+  let falhas = 0;
+  await pool(itens.slice(0, 40), 4, async (it) => {
+    const termo = it.nome.replace(/[™®©]/g, "").replace(/\s*[-–:]\s*(game of the year|goty|definitive|complete|deluxe|enhanced|remastered|ultimate|director'?s cut)( edition)?$/i, "");
+    const payload: Record<string, unknown> = {
+      searchType: "games", searchTerms: termo.split(/\s+/).filter(Boolean), searchPage: 1, size: 20,
+      searchOptions: {
+        games: { userId: 0, platform: "", sortCategory: "popular", rangeCategory: "main", rangeTime: { min: 0, max: 0 },
+          gameplay: { perspective: "", flow: "", genre: "", difficulty: "" }, rangeYear: { max: "", min: "" }, modifier: "" },
+        users: { sortCategory: "postcount" }, lists: { sortCategory: "follows" }, filter: "", sort: 0, randomizer: 0,
+      },
+      useCache: true,
+    };
+    if (s.key) payload[s.key] = s.val;
+    try {
+      const r = await getJSON(`${HLTB}/api/${s.path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json", Accept: "*/*", "User-Agent": BROWSER_UA, Referer: `${HLTB}/`, Origin: HLTB,
+          "x-auth-token": s.token, "x-hp-key": s.key, "x-hp-val": s.val,
+        },
+        body: JSON.stringify(payload),
+      }, "O HowLongToBeat");
+      // Nome igual (ignorando pontuação) ou bem parecido; senão fica sem tempo
+      const alvo = hkey(it.nome), alvo2 = hkey(termo);
+      let best: any = null, nota = 0;
+      for (const g of r.data || []) {
+        const k = hkey(g.game_name || "");
+        const n = k === alvo || k === alvo2 ? 1 : Math.max(dice(k, alvo), dice(k, alvo2));
+        if (n > nota) { nota = n; best = g; }
+      }
+      const ok = best && nota >= 0.8 && (best.comp_main || best.comp_plus || best.comp_100);
+      metas.push({
+        chave: `hltb:${it.chave}`,
+        dados: ok ? { id: best.game_id, nome: best.game_name, main: best.comp_main || 0, plus: best.comp_plus || 0, full: best.comp_100 || 0 } : {},
+      });
+    } catch (err) {
+      falhas++;
+      console.warn("HLTB", it.nome, (err as Error).message);
+    }
+  });
+  if (falhas && !metas.length) hltbCache = null;
+  const unicos = [...new Map(metas.map((m) => [m.chave, m])).values()];
+  for (const part of chunks(unicos, 300)) check(await admin.from("jogos_meta").upsert(part));
+  return { feitos: unicos.length, falhas };
+}
+
 // ---------- entrada ----------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -1107,6 +1193,12 @@ Deno.serve(async (req) => {
       case "desconectar": return json(await desconectar(loja));
       case "sincronizar": return json(await sincronizar(loja));
       case "metadados": return json(await metadados(Number(body.limite) || 120));
+      case "hltb": {
+        const itens = (Array.isArray(body.itens) ? body.itens : [])
+          .filter((i: any) => typeof i?.chave === "string" && typeof i?.nome === "string" && i.chave && i.nome)
+          .map((i: any) => ({ chave: i.chave.slice(0, 200), nome: i.nome.slice(0, 200) }));
+        return json(await hltb(itens));
+      }
       default: return json({ error: "Ação desconhecida." }, 400);
     }
   } catch (err) {

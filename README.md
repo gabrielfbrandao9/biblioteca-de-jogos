@@ -40,7 +40,9 @@ e o resto continua funcionando.
 
 - `nuvem.js` conversa com o Supabase; `entrada.js` cuida do login, do acesso e da tela Conta.
 - A função `jogos-lojas` (Supabase) faz login nas lojas, guarda os tokens (só ela lê) e baixa a lista de jogos
-  para `jogos_itens`; também busca capa, gêneros, nota e resumo de cada jogo no GOG GamesDB.
+  para `jogos_itens`; também busca capa, gêneros, nota e resumo de cada jogo no GOG GamesDB e o tempo para
+  zerar (história, com extras e 100%) no HowLongToBeat. Os nomes da Epic vêm em inglês, como nas outras lojas,
+  para o mesmo jogo se juntar.
 - `lojas.js` junta as lojas e grava a biblioteca. Jogos com o mesmo nome em lojas diferentes (ignorando
   maiúsculas, acentos e pontuação) aparecem uma vez só, com selos de cada loja e a seção "Onde eu tenho".
 - Capas: Steam (função `jogos-capas`) para jogos da Steam; GOG GamesDB ou catálogo da Epic para os outros.

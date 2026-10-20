@@ -109,11 +109,11 @@ const Nuvem = (() => {
     async itens() {
       return selectAll("jogos_itens", "loja, id_loja, nome, playtime, ultima_vez, adicionado, extra", "loja", "id_loja");
     },
-    // Map 'gdb:<loja>:<id>' -> metadados do GOG GamesDB
-    async metas() {
+    // Map 'gdb:<loja>:<id>' -> metadados do GOG GamesDB ('hltb:<nome>' -> tempo para zerar)
+    async metas(prefixo = "gdb:") {
       const all = [];
       for (let from = 0; ; from += PAGE) {
-        const rows = check(await client.from("jogos_meta").select("chave, dados").like("chave", "gdb:%").order("chave").range(from, from + PAGE - 1));
+        const rows = check(await client.from("jogos_meta").select("chave, dados").like("chave", `${prefixo}%`).order("chave").range(from, from + PAGE - 1));
         all.push(...rows);
         if (rows.length < PAGE) return new Map(all.map((r) => [r.chave, r.dados]));
       }

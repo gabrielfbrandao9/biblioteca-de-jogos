@@ -55,6 +55,8 @@ const FACETS = [
   { key: "plat", label: "Plataforma", values: (g) => g.platforms || [] },
   { key: "nota", label: "Nota da crítica", values: (g) => [scoreBand(g.criticScore)], order: "fixed",
     fixed: ["90+", "80–89", "70–79", "60–69", "Abaixo de 60", "Sem nota"] },
+  { key: "duracao", label: "Tempo para zerar", values: (g) => [lengthBand(beatTime(g))], order: "fixed",
+    fixed: ["Até 5 h", "5–15 h", "15–30 h", "30–60 h", "Mais de 60 h", "Sem dado"] },
 ];
 
 const SORTS = {
@@ -64,6 +66,7 @@ const SORTS = {
   communityScore: { get: (g) => g.communityScore, dir: -1 },
   added: { get: (g) => g.added, dir: -1 },
   playtime: { get: (g) => g.playtime || null, dir: -1 },
+  hltb: { get: (g) => beatTime(g), dir: 1 },
   lastActivity: { get: (g) => g.lastActivity, dir: -1 },
 };
 
@@ -87,6 +90,18 @@ function scoreBand(s) {
   if (s >= 70) return "70–79";
   if (s >= 60) return "60–69";
   return "Abaixo de 60";
+}
+// Tempo para zerar (HowLongToBeat): história principal; sem ela, história + extras
+function beatTime(g) { return g.hltb?.main || g.hltb?.plus || null; }
+function lengthBand(sec) {
+  if (!sec) return "Sem dado";
+  const h = sec / 3600;
+  return h <= 5 ? "Até 5 h" : h <= 15 ? "5–15 h" : h <= 30 ? "15–30 h" : h <= 60 ? "30–60 h" : "Mais de 60 h";
+}
+function fmtHours(sec) {
+  if (!sec) return "—";
+  const h = Math.round(sec / 1800) / 2;
+  return h >= 1 ? `${nf.format(h)} h` : `${Math.max(1, Math.round(sec / 60))} min`;
 }
 function norm(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
 function hue(str) { let h = 0; for (const c of str) h = (h * 31 + c.charCodeAt(0)) % 360; return h; }
@@ -344,6 +359,9 @@ function openGame(id, push = true) {
   const facts = [
     ["Status", g.status],
     ["Tempo de jogo", fmtPlaytime(g.playtime)],
+    ["Para zerar", fmtHours(g.hltb?.main)],
+    ["Com extras", fmtHours(g.hltb?.plus)],
+    ["100%", fmtHours(g.hltb?.full)],
     ["Última atividade", fmtDate(g.lastActivity)],
     ["Lançamento", fmtDate(g.releaseDate)],
     ["Nota da crítica", g.criticScore ?? "—"],
@@ -366,7 +384,8 @@ function openGame(id, push = true) {
       <span class="copy-added">adicionado em ${fmtDate(c.added)}</span>
     </div>`).join("");
 
-  const links = g.links || [];
+  const links = [...(g.links || [])];
+  if (g.hltb?.id) links.push({ name: "HowLongToBeat", url: `https://howlongtobeat.com/game/${g.hltb.id}` });
   $("#d-links-wrap").hidden = !links.length;
   $("#d-links").innerHTML = links
     .filter((l) => /^https?:/i.test(l.url))

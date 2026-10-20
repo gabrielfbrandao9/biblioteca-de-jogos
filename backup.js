@@ -23,6 +23,8 @@ const Backup = (() => {
     ["Lojas", (g) => juntar(g.stores)],
     ["Status", (g) => g.status || ""],
     ["Horas jogadas", (g) => horas(g.playtime)],
+    ["Horas para zerar", (g) => horas(g.hltb?.main)],
+    ["Horas para 100%", (g) => horas(g.hltb?.full)],
     ["Última atividade", (g) => data(g.lastActivity)],
     ["Adicionado", (g) => data(g.added)],
     ["Lançamento", (g) => data(g.releaseDate)],
