@@ -117,22 +117,83 @@ async function steamOwned(chave: string, steamid: string) {
   }
   return (r.response.games || []) as any[];
 }
+// Cookie de login do site da Steam (opcional): a API oficial não lista jogos grátis nunca abertos, demos e testes;
+// a lista completa da conta (rgOwnedApps) só vem da página da loja com o login.
+function steamCookie(raw: string) {
+  const v = raw.trim().replace(/^cookie:\s*/i, "");
+  const m = /steamLoginSecure=([^;\s]+)/.exec(v);
+  return m ? m[1] : (/^[^=;\s]+$/.test(v) ? v : "");
+}
+async function steamOwnedApps(cookie: string): Promise<number[]> {
+  const res = await fetch("https://store.steampowered.com/dynamicstore/userdata/", {
+    headers: { Cookie: `steamLoginSecure=${cookie}`, "User-Agent": BROWSER_UA, Accept: "application/json" },
+  });
+  const j = await res.json().catch(() => ({}));
+  const apps = (j.rgOwnedApps || []) as number[];
+  if (!res.ok || !apps.length) throw new Erro("O cookie da Steam venceu ou está errado: os jogos grátis nunca abertos e as demos não vieram. Clique em “Reconectar” e cole um cookie novo.");
+  return apps;
+}
+// Tipos da loja da Steam que entram: jogo, demo, mod, programa e teste (beta/playtest)
+const STEAM_TIPOS = new Set([0, 1, 2, 6, 12]);
+async function steamNomes(appids: number[]) {
+  const out = new Map<number, string>();
+  await pool(chunks(appids, 50), 4, async (part) => {
+    const query = { ids: part.map((appid) => ({ appid })), context: { language: "brazilian", country_code: "BR" }, data_request: { include_basic_info: true } };
+    try {
+      const r = await getJSON(`https://api.steampowered.com/IStoreBrowseService/GetItems/v1?input_json=${encodeURIComponent(JSON.stringify(query))}`, {}, "A loja da Steam");
+      for (const it of r.response?.store_items || []) {
+        if (it.name && STEAM_TIPOS.has(it.type ?? 0)) out.set(it.appid, it.name);
+      }
+    } catch (err) {
+      console.warn("Steam nomes:", err);
+    }
+  });
+  return out;
+}
+let avisoSync: string | null = null;
+
 async function steamConectar(body: any) {
-  const chave = String(body.chave || "").trim();
-  if (!/^[0-9A-F]{32}$/i.test(chave)) throw new Erro("A chave da API da Steam tem 32 letras e números.");
-  const steamid = await steamId(chave, String(body.perfil || ""));
-  await steamOwned(chave, steamid);
+  const atual = check(await admin.from("jogos_tokens").select("dados").eq("loja", "steam").maybeSingle()) as any;
+  let chave = String(body.chave || "").trim();
+  let steamid: string;
+  if (!chave && atual?.dados?.chave) {
+    // Reconectar só para trocar o cookie: mantém chave e perfil
+    chave = atual.dados.chave;
+    steamid = atual.dados.steamid;
+  } else {
+    if (!/^[0-9A-F]{32}$/i.test(chave)) throw new Erro("A chave da API da Steam tem 32 letras e números.");
+    steamid = await steamId(chave, String(body.perfil || ""));
+    await steamOwned(chave, steamid);
+  }
+  const cookie = body.cookie ? steamCookie(String(body.cookie)) : atual?.dados?.cookie || "";
+  if (body.cookie && !cookie) throw new Erro("Cole o valor do cookie steamLoginSecure (ou a linha inteira com steamLoginSecure=…).");
+  if (body.cookie) await steamOwnedApps(cookie);
   const s = await steamApi("ISteamUser/GetPlayerSummaries/v2", { key: chave, steamids: steamid });
-  await salvarToken("steam", { chave, steamid });
-  return conectada("steam", s.response?.players?.[0]?.personaname || steamid);
+  await salvarToken("steam", cookie ? { chave, steamid, cookie } : { chave, steamid });
+  const nome = s.response?.players?.[0]?.personaname || steamid;
+  return conectada("steam", cookie ? `${nome} (com cookie)` : nome);
 }
 async function steamSync(): Promise<Item[]> {
   const t = await lerToken("steam");
   const games = await steamOwned(t.chave, t.steamid);
-  return games.map((g) => ({
+  const items: Item[] = games.map((g) => ({
     loja: "steam", id_loja: String(g.appid), nome: cleanName(g.name || `App ${g.appid}`),
     playtime: (g.playtime_forever || 0) * 60, ultima_vez: isoFromUnix(g.rtime_last_played || 0), adicionado: null, extra: {},
   }));
+  if (t.cookie) {
+    try {
+      const have = new Set(games.map((g) => g.appid));
+      const extras = (await steamOwnedApps(t.cookie)).filter((id) => !have.has(id));
+      const nomes = await steamNomes(extras);
+      for (const [appid, nome] of nomes) {
+        items.push({ loja: "steam", id_loja: String(appid), nome: cleanName(nome), playtime: 0, ultima_vez: null, adicionado: null, extra: {} });
+      }
+      console.log("Steam: API", games.length, "+ cookie", nomes.size, "de", extras.length);
+    } catch (err) {
+      avisoSync = (err as Error).message; // a lista da API continua valendo
+    }
+  }
+  return items;
 }
 
 // ---------- Epic (mesmo login do Legendary/Heroic) ----------
@@ -856,12 +917,13 @@ const SYNC: Record<string, () => Promise<Item[]>> = {
 };
 
 async function sincronizar(loja: string) {
+  avisoSync = null;
   const items = await SYNC[loja]();
   const agora = new Date().toISOString();
   for (const part of chunks(items.map((i) => ({ ...i, visto_em: agora })), 500)) check(await admin.from("jogos_itens").upsert(part));
   check(await admin.from("jogos_itens").delete().eq("loja", loja).lt("visto_em", agora));
-  await salvarLoja(loja, { sincronizado_em: agora, itens: items.length, erro: null });
-  return { itens: items.length };
+  await salvarLoja(loja, { sincronizado_em: agora, itens: items.length, erro: avisoSync });
+  return { itens: items.length, aviso: avisoSync };
 }
 
 async function desconectar(loja: string) {

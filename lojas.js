@@ -197,8 +197,14 @@ async function rebuildLibrary(progress) {
         <li>Crie uma chave em <a href="https://steamcommunity.com/dev/apikey" target="_blank" rel="noopener noreferrer">steamcommunity.com/dev/apikey</a> (em “Domain” pode escrever qualquer nome, como <i>biblioteca</i>).</li>
         <li>No seu perfil da Steam: Editar perfil → Privacidade → “Detalhes dos jogos”: <b>Público</b>.</li>
       </ol>
+      ${lojas.has("steam") ? `<p class="l-note">Já conectada: deixe a chave e o perfil em branco para trocar só o cookie.</p>` : ""}
       <input data-f="chave" type="text" placeholder="chave da API (32 letras e números)" autocomplete="off" spellcheck="false">
-      <input data-f="perfil" type="text" placeholder="link do perfil (steamcommunity.com/id/…)" autocomplete="off" spellcheck="false">`;
+      <input data-f="perfil" type="text" placeholder="link do perfil (steamcommunity.com/id/…)" autocomplete="off" spellcheck="false">
+      <p class="l-note"><b>Opcional</b>: a chave não mostra jogos grátis que você nunca abriu, demos e testes. Para trazê-los, entre em
+        <a href="https://store.steampowered.com/" target="_blank" rel="noopener noreferrer">store.steampowered.com</a>, aperte <b>F12</b> →
+        aba <b>Aplicativo</b> (Application) → <b>Cookies</b> → <code>https://store.steampowered.com</code>, copie o valor de
+        <code>steamLoginSecure</code> e cole abaixo. Ele vence de tempos em tempos: aí é só reconectar com um novo.</p>
+      <textarea data-f="cookie" rows="2" placeholder="valor do steamLoginSecure (opcional)" spellcheck="false"></textarea>`;
     if (loja === "epic") return `
       <ol>
         <li><a href="${EPIC_LOGIN}" target="_blank" rel="noopener noreferrer">Abra o login da Epic</a> e entre na sua conta.</li>
@@ -361,7 +367,8 @@ async function rebuildLibrary(progress) {
       if (!lojas.has(loja)) continue;
       progress(`Baixando a lista de jogos da ${LOJAS[loja].nome}…`, null);
       try {
-        await Nuvem.lojasAcao({ acao: "sincronizar", loja });
+        const r = await Nuvem.lojasAcao({ acao: "sincronizar", loja });
+        if (r.aviso) erros.push(`${LOJAS[loja].nome}: ${r.aviso}`);
       } catch (err) {
         erros.push(`${LOJAS[loja].nome}: ${err.message}`);
       }
