@@ -55,9 +55,10 @@ const Backup = (() => {
     await Nuvem.salvarDescricoes(descs);
 
     const origens = jogos.flatMap((g) => g.copies || [{ id: g.id, source: g.stores[0] }])
-      .filter((c) => typeof c.id === "string" && c.id.startsWith("xbox:") && ORIGENS.includes(c.source));
+      .filter((c) => typeof c.id === "string" && c.id.startsWith("xbox:") && c.source)
+      .map((c) => ({ id: c.id, source: c.source === "Game Pass" ? "Game Pass" : "Xbox" }));
     for (let i = 0; i < origens.length; i += 6) {
-      progresso(`Restaurando Game Pass / Xbox / Microsoft Store… ${nf.format(i)}/${nf.format(origens.length)}`);
+      progresso(`Restaurando Game Pass / Xbox… ${nf.format(i)}/${nf.format(origens.length)}`);
       await Promise.all(origens.slice(i, i + 6).map((c) => Nuvem.lojasAcao({ acao: "origem", id: c.id, source: c.source })));
     }
 

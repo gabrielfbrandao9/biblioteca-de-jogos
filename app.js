@@ -31,7 +31,8 @@ const FEATURES = {
 };
 
 // Como um jogo da conexão Xbox pode ter vindo (o padrão é Game Pass)
-const ORIGENS = ["Game Pass", "Xbox", "Microsoft Store"];
+const XBOX = "Xbox / MS Store"; // Xbox e Microsoft Store contam como uma loja só
+const ORIGENS = ["Game Pass", XBOX];
 
 // Selos das lojas: sigla curta e classe de cor
 const STORES = {
@@ -42,8 +43,7 @@ const STORES = {
   "PlayStation": "PS",
   "Ubisoft Connect": "Ubisoft",
   "EA app": "EA",
-  "Microsoft Store": "MS Store",
-  "Xbox": "Xbox",
+  [XBOX]: "Xbox",
   "Game Pass": "Game Pass",
   "Legacy Games": "Legacy",
   "Riot Games": "Riot",
@@ -281,7 +281,8 @@ function renderToolbar() {
   $("#sort").value = state.sort;
   $("#dir").textContent = state.dir === 1 ? "↑" : "↓";
   $("#dir").title = state.dir === 1 ? "Ordem crescente" : "Ordem decrescente";
-  if ($("#q").value !== state.q) $("#q").value = state.q;
+  // Compara sem os espaços das pontas: senão o espaço que acabou de ser digitado é apagado
+  if ($("#q").value.trim() !== state.q) $("#q").value = state.q;
 
   const active = $("#active");
   active.innerHTML = "";
@@ -431,7 +432,7 @@ dialog.addEventListener("close", () => {
 });
 
 // ---------- eventos ----------
-// Cópia do Xbox: Game Pass, Xbox ou Microsoft Store (escolha manual, gravada por lojas.js)
+// Cópia do Xbox: Game Pass ou Xbox / MS Store (escolha manual, gravada por lojas.js)
 document.addEventListener("change", (e) => {
   const sel = e.target.closest(".copy-origem");
   if (sel) mudarOrigem(sel.dataset.copy, sel.value, sel);

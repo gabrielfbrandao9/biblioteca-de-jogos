@@ -303,7 +303,7 @@ select {
 .st-playstation { --c: #5b8cff; }
 .st-ubisoft-connect { --c: #4fb3ff; }
 .st-ea-app { --c: #ff6b6b; }
-.st-microsoft-store, .st-xbox { --c: #6fd35a; }
+.st-microsoft-store, .st-xbox, .st-xbox-ms-store { --c: #6fd35a; }
 .st-game-pass { --c: #c4f25a; }
 .st-legacy-games { --c: #f2d45c; }
 .st-riot-games { --c: #ff5a5f; }

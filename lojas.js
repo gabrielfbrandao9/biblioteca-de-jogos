@@ -7,7 +7,7 @@ const LOJAS = {
   epic: { nome: "Epic", source: "Epic" },
   gog: { nome: "GOG", source: "GOG" },
   amazon: { nome: "Amazon", source: "Amazon" },
-  xbox: { nome: "Xbox / MS Store", source: "Xbox" },
+  xbox: { nome: "Xbox / MS Store", source: XBOX },
   psn: { nome: "PlayStation", source: "PlayStation" },
   ea: { nome: "EA app", source: "EA app" },
   ubisoft: { nome: "Ubisoft", source: "Ubisoft Connect" },
@@ -78,8 +78,8 @@ function itemCopy(it, meta, capas, origem) {
   return clean({
     id: `${it.loja}:${it.id_loja}`,
     name: it.nome,
-    // Xbox: tudo começa como Game Pass, até ser marcado à mão como Xbox ou Microsoft Store
-    source: it.loja === "xbox" ? origem || "Game Pass" : x.source || LOJAS[it.loja].source,
+    // Xbox: tudo começa como Game Pass, até ser marcado à mão como comprado (Xbox / MS Store)
+    source: it.loja === "xbox" ? (origem && origem !== "Game Pass" ? XBOX : "Game Pass") : x.source || LOJAS[it.loja].source,
     platforms: some(x.platforms) || ["PC (Windows)"],
     playtime,
     status: playtime > 0 ? "Jogado" : "Não jogado",
@@ -179,7 +179,7 @@ async function fetchBeatTimes(payload, progress, onSaved) {
 async function mudarOrigem(copyId, source, sel) {
   sel.disabled = true;
   try {
-    await Nuvem.lojasAcao({ acao: "origem", id: copyId, source });
+    await Nuvem.lojasAcao({ acao: "origem", id: copyId, source: source === XBOX ? "Xbox" : source });
     const g = games.find((x) => x.id === copyId || x.copies?.some((c) => c.id === copyId));
     if (g?.copies) {
       g.copies.find((c) => c.id === copyId).source = source;
