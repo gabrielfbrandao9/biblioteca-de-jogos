@@ -79,7 +79,7 @@ function itemCopy(it, meta, capas, origem) {
     id: `${it.loja}:${it.id_loja}`,
     name: it.nome,
     // Xbox: tudo começa como Game Pass, até ser marcado à mão como comprado (Xbox / MS Store)
-    source: it.loja === "xbox" ? (origem && origem !== "Game Pass" ? XBOX : "Game Pass") : x.source || LOJAS[it.loja].source,
+    source: it.loja === "xbox" ? (origem && origem !== "Game Pass" ? XBOX : "Game Pass") : x.source || LOJAS[it.loja]?.source,
     platforms: some(x.platforms) || ["PC (Windows)"],
     playtime,
     status: playtime > 0 ? "Jogado" : "Não jogado",
@@ -453,4 +453,75 @@ async function rebuildLibrary(progress) {
     }
   });
   $l("l-sync").addEventListener("click", () => sincronizar(Object.keys(LOJAS).filter((loja) => lojas.has(loja))));
+})();
+
+// ---------- jogos adicionados à mão (loja "manual" em jogos_itens) ----------
+const Manual = (() => {
+  const dlg = document.getElementById("manual");
+  const $m = (id) => document.getElementById(id);
+  const OPCOES = ["Steam", "Epic", "GOG", "Amazon", "Game Pass", XBOX, "PlayStation", "Nintendo", "Ubisoft Connect", "EA app",
+    "Battle.net", "Riot Games", "Legacy Games"];
+  let editando = null; // id_loja do jogo manual em edição
+  let busy = false;
+
+  $m("m-loja").innerHTML = [...OPCOES, "Outra…"].map((o) => `<option>${esc(o)}</option>`).join("");
+  const msg = (text, kind = "") => { $m("m-status").textContent = text; $m("m-status").className = `u-status ${kind}`; };
+  const outra = () => $m("m-loja").value === "Outra…";
+  $m("m-loja").addEventListener("change", () => { $m("m-outra-wrap").hidden = !outra(); if (outra()) $m("m-outra").focus(); });
+
+  function abrir(copyId) {
+    if (busy) return dlg.showModal();
+    editando = copyId ? copyId.slice("manual:".length) : null;
+    const g = copyId && games.find((x) => x.id === copyId || x.copies?.some((c) => c.id === copyId));
+    const fonte = g ? (g.copies?.find((c) => c.id === copyId)?.source || g.stores[0]) : "Steam";
+    $m("m-title").textContent = editando ? "Editar jogo" : "Adicionar jogo";
+    $m("m-nome").value = g ? g.name : "";
+    $m("m-loja").value = OPCOES.includes(fonte) ? fonte : "Outra…";
+    $m("m-outra").value = OPCOES.includes(fonte) ? "" : fonte;
+    $m("m-outra-wrap").hidden = !outra();
+    $m("m-excluir").hidden = !editando;
+    msg("");
+    if (document.getElementById("detail").open) document.getElementById("detail").close();
+    dlg.showModal();
+    $m("m-nome").focus();
+  }
+
+  // Grava na função e remonta a biblioteca (capa/descrição do GamesDB e tempo do HowLongToBeat vêm junto)
+  async function executar(corpo, texto, meta) {
+    busy = true;
+    for (const b of dlg.querySelectorAll("button")) b.disabled = b.id !== "m-cancelar";
+    try {
+      msg(texto);
+      await Nuvem.lojasAcao({ acao: "manual", ...corpo });
+      if (meta) {
+        msg("Buscando capa e descrição…");
+        await Nuvem.lojasAcao({ acao: "metadados", limite: 20 });
+      }
+      const { payload, at } = await rebuildLibrary(msg);
+      onPublished(payload, at);
+      await fetchBeatTimes(payload, msg, onPublished);
+      msg(corpo.op === "excluir" ? "Jogo excluído. ✓" : "Jogo salvo. ✓", "ok");
+      setTimeout(() => { if (!busy) dlg.close(); }, 900);
+    } catch (err) {
+      msg(err.message || String(err), "err");
+    } finally {
+      busy = false;
+      for (const b of dlg.querySelectorAll("button")) b.disabled = false;
+    }
+  }
+
+  $m("m-form").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const source = outra() ? $m("m-outra").value.trim() : $m("m-loja").value;
+    if (!source) return msg("Digite o nome da loja.", "err");
+    executar({ op: "salvar", id: editando, nome: $m("m-nome").value.trim(), source }, "Salvando…", true);
+  });
+  $m("m-excluir").addEventListener("click", () => {
+    if (!editando || !confirm(`Excluir “${$m("m-nome").value}” da biblioteca?`)) return;
+    executar({ op: "excluir", id: editando }, "Excluindo…", false);
+  });
+  $m("m-cancelar").addEventListener("click", () => dlg.close());
+  document.getElementById("add-btn").addEventListener("click", () => abrir(null));
+
+  return { abrir };
 })();

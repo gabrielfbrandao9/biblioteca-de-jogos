@@ -47,6 +47,10 @@ e o resto continua funcionando.
   começa como **Game Pass**. No detalhe do jogo (em "Onde eu tenho") quem pode atualizar troca para
   **Xbox / MS Store** (as duas contam como uma loja só); a escolha fica em `jogos_meta` (`origem:xbox:<id>`) e vale
   nas próximas sincronizações.
+- **Adicionar** (dono/editor): jogo digitado à mão, com nome e loja (as conhecidas ou uma livre). Fica em
+  `jogos_itens` com loja `manual` (a sincronização não mexe nele); a função acha o código da Steam pelo nome para
+  buscar capa, gêneros e descrição no GOG GamesDB, e o tempo para zerar vem do HowLongToBeat. Editar/Excluir
+  aparecem no detalhe do jogo.
 - `lojas.js` junta as lojas e grava a biblioteca. Jogos com o mesmo nome em lojas diferentes (ignorando
   maiúsculas, acentos e pontuação) aparecem uma vez só, com selos de cada loja e a seção "Onde eu tenho".
 - Capas: Steam (função `jogos-capas`) para jogos da Steam; GOG GamesDB ou catálogo da Epic para os outros.

@@ -305,6 +305,7 @@ select {
 .st-ea-app { --c: #ff6b6b; }
 .st-microsoft-store, .st-xbox, .st-xbox-ms-store { --c: #6fd35a; }
 .st-game-pass { --c: #c4f25a; }
+.st-nintendo { --c: #ff5f5f; }
 .st-legacy-games { --c: #f2d45c; }
 .st-riot-games { --c: #ff5a5f; }
 .st-battle-net { --c: #3fb0ff; }
@@ -407,6 +408,12 @@ select {
 .c-role { color: var(--accent); font-size: 13px; font-weight: 600; }
 .c-list select, .c-form select { height: 34px; padding: 0 30px 0 10px; }
 .link.danger:hover { color: #ef7d6b; }
+.btn.danger { color: #ef7d6b; margin-right: auto; }
+.manual { width: min(460px, calc(100vw - 32px)); }
+.manual h2 { margin-bottom: 16px; }
+.m-field { display: flex; flex-direction: column; gap: 6px; margin: 0 0 12px; font-size: 14px; font-weight: 600; }
+.m-field input, .m-field select { font: inherit; font-weight: 400; height: 38px; padding: 0 10px; }
+.copy .link[data-editar] { font-size: 13px; }
 .c-form { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .c-form input {
   height: 38px; padding: 0 12px; min-width: 0;

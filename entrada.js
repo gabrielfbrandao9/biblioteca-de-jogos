@@ -44,6 +44,7 @@ function showApp() {
   document.getElementById("app").hidden = false;
   const podeAtualizar = papel === "dono" || papel === "editor";
   document.getElementById("update-btn").hidden = !podeAtualizar;
+  document.getElementById("add-btn").hidden = !podeAtualizar;
   document.body.classList.toggle("can-update", podeAtualizar);
   const avatar = user.user_metadata?.avatar_url;
   document.getElementById("account").innerHTML = avatar

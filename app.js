@@ -44,6 +44,7 @@ const STORES = {
   "Ubisoft Connect": "Ubisoft",
   "EA app": "EA",
   [XBOX]: "Xbox",
+  "Nintendo": "Nintendo",
   "Game Pass": "Game Pass",
   "Legacy Games": "Legacy",
   "Riot Games": "Riot",
@@ -387,6 +388,7 @@ function openGame(id, push = true) {
         ? `<select class="copy-origem" data-copy="${esc(c.id)}" aria-label="Como você tem este jogo">${ORIGENS.map((o) =>
           `<option${o === c.source ? " selected" : ""}>${o}</option>`).join("")}</select>`
         : storeBadges([c.source || "Outros"])}
+      ${podeMudar && c.id?.startsWith("manual:") ? `<button type="button" class="link" data-editar="${esc(c.id)}">Editar</button>` : ""}
       <span class="copy-plat">${esc((c.platforms || []).join(", "))}</span>
       <span class="copy-status${c.status === "Jogado" ? " ok" : ""}">${esc(c.status || "")}</span>
       <span class="copy-time">${c.playtime ? fmtPlaytime(c.playtime) : ""}</span>
@@ -450,6 +452,7 @@ document.addEventListener("click", (e) => {
     return;
   }
   if (t.classList.contains("card")) return openGame(t.dataset.id);
+  if (t.dataset.editar) return Manual.abrir(t.dataset.editar);
   if (t.dataset.f) {
     const inDialog = dialog.contains(t);
     if (inDialog) { state.sel[t.dataset.f] = new Set([t.dataset.v]); closeGame(); update(); window.scrollTo(0, 0); }

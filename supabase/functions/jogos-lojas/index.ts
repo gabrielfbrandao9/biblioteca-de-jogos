@@ -9,6 +9,7 @@
 //   metadados                completa capas/gêneros/descrições pelo GOG GamesDB, em lotes (dono e editor)
 //   hltb                     tempo para zerar (HowLongToBeat) de uma lista de jogos, em lotes (dono e editor)
 //   origem                   marca à mão se um jogo do Xbox é Game Pass, Xbox ou Microsoft Store (dono e editor)
+//   manual                   adiciona, edita ou exclui um jogo digitado à mão (loja "manual") (dono e editor)
 //
 // Os tokens ficam em jogos_tokens, que nenhum navegador lê: só esta função (service role).
 // Os métodos de login da Epic, GOG e Amazon são os mesmos dos apps Legendary/Heroic, gogdl e Nile.
@@ -1043,16 +1044,22 @@ async function selectAll(table: string, cols: string, filter?: (q: any) => any) 
   }
 }
 async function metadados(limite: number) {
-  const items = await selectAll("jogos_itens", "loja, id_loja");
+  const items = await selectAll("jogos_itens", "loja, id_loja, extra");
   const have = new Set((await selectAll("jogos_meta", "chave", (q) => q.like("chave", "gdb:%"))).map((r) => r.chave));
-  const faltam = items.filter((i) => GDB_PLATFORM[i.loja])
-    .map((i) => ({ ...i, chave: `gdb:${i.loja}:${i.id_loja}` })).filter((i) => !have.has(i.chave));
+  // Jogos manuais usam o código da Steam achado pelo nome; os outros, o código da própria loja
+  const faltam = items
+    .map((i) => ({
+      ...i, chave: `gdb:${i.loja}:${i.id_loja}`,
+      plat: i.loja === "manual" ? (i.extra?.steam ? "steam" : null) : GDB_PLATFORM[i.loja],
+      ext: i.loja === "manual" ? String(i.extra?.steam || "") : i.id_loja,
+    }))
+    .filter((i) => i.plat && !have.has(i.chave));
   const lote = faltam.slice(0, Math.max(1, Math.min(limite, 200)));
   const metas: { chave: string; dados: unknown }[] = [];
   const descs: { id: string; html: string; hash: string }[] = [];
   let falhas = 0;
   await pool(lote, 10, async (i) => {
-    const res = await fetch(`https://gamesdb.gog.com/platforms/${GDB_PLATFORM[i.loja]}/external_releases/${encodeURIComponent(i.id_loja)}`);
+    const res = await fetch(`https://gamesdb.gog.com/platforms/${i.plat}/external_releases/${encodeURIComponent(i.ext)}`);
     if (res.status === 404) { metas.push({ chave: i.chave, dados: {} }); return; }
     if (!res.ok) { falhas++; await res.body?.cancel(); return; }
     const r = await res.json();
@@ -1170,6 +1177,51 @@ async function hltb(itens: { chave: string; nome: string }[]) {
 
 const ORIGENS = ["Game Pass", "Xbox", "Microsoft Store"];
 
+// ---------- jogos adicionados à mão ----------
+async function manual(body: any) {
+  const id = String(body.id || "");
+  if (body.op === "excluir") {
+    if (!/^[\w-]{1,80}$/.test(id)) throw new Erro("Jogo inválido.");
+    check(await admin.from("jogos_itens").delete().eq("loja", "manual").eq("id_loja", id));
+    check(await admin.from("jogos_meta").delete().eq("chave", `gdb:manual:${id}`));
+    return { ok: true };
+  }
+  const nome = cleanName(String(body.nome || "")).slice(0, 200);
+  const source = String(body.source || "").replace(/\s+/g, " ").trim().slice(0, 60);
+  if (!nome) throw new Erro("Digite o nome do jogo.");
+  if (!source) throw new Erro("Escolha a loja.");
+  const novoId = id && /^[\w-]{1,80}$/.test(id) ? id : crypto.randomUUID();
+  const antigo = check(await admin.from("jogos_itens").select("nome, adicionado, extra").eq("loja", "manual").eq("id_loja", novoId).maybeSingle()) as any;
+
+  // Acha o jogo na Steam pelo nome: com o código dela vêm capa, gêneros e descrição (GOG GamesDB)
+  let steam: number | null = antigo && antigo.nome === nome ? antigo.extra?.steam ?? null : null;
+  if (!antigo || antigo.nome !== nome) {
+    try {
+      const r = await getJSON(`https://store.steampowered.com/api/storesearch/?term=${encodeURIComponent(nome)}&cc=US&l=english`, {}, "A Steam");
+      const alvo = hkey(nome);
+      let nota = 0;
+      for (const it of r.items || []) {
+        const k = hkey(it.name || "");
+        const n = k === alvo ? 1 : dice(k, alvo);
+        if (n > nota) { nota = n; steam = it.id; }
+      }
+      if (nota < 0.8) steam = null;
+    } catch (err) {
+      console.warn("Steam busca:", (err as Error).message);
+    }
+    check(await admin.from("jogos_meta").delete().eq("chave", `gdb:manual:${novoId}`));
+  }
+  const plataformas: Record<string, string[]> = {
+    PlayStation: ["Sony PlayStation"], Nintendo: ["Nintendo Switch"], "Xbox / MS Store": ["Microsoft Xbox"], "Game Pass": ["PC (Windows)"],
+  };
+  check(await admin.from("jogos_itens").upsert({
+    loja: "manual", id_loja: novoId, nome, playtime: null, ultima_vez: null,
+    adicionado: antigo?.adicionado || new Date().toISOString(), visto_em: new Date().toISOString(),
+    extra: { source, steam, platforms: plataformas[source] || null },
+  }));
+  return { id: novoId, steam };
+}
+
 // ---------- entrada ----------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -1209,6 +1261,7 @@ Deno.serve(async (req) => {
         check(await admin.from("jogos_meta").upsert({ chave: `origem:${id}`, dados: { source } }));
         return json({ ok: true });
       }
+      case "manual": return json(await manual(body));
       default: return json({ error: "Ação desconhecida." }, 400);
     }
   } catch (err) {
