@@ -30,6 +30,9 @@ const FEATURES = {
   "Massively Multiplayer Online (MMO)": "MMO",
 };
 
+// Como um jogo da conexão Xbox pode ter vindo (o padrão é Game Pass)
+const ORIGENS = ["Game Pass", "Xbox", "Microsoft Store"];
+
 // Selos das lojas: sigla curta e classe de cor
 const STORES = {
   "Steam": "Steam",
@@ -41,6 +44,7 @@ const STORES = {
   "EA app": "EA",
   "Microsoft Store": "MS Store",
   "Xbox": "Xbox",
+  "Game Pass": "Game Pass",
   "Legacy Games": "Legacy",
   "Riot Games": "Riot",
   "Battle.net": "Battle.net",
@@ -375,9 +379,13 @@ function openGame(id, push = true) {
     (g.genres || []).map((v) => `<button type="button" class="chip" data-f="genero" data-v="${esc(v)}">${esc(GENRES[v] || v)}</button>`).join("") +
     (g.features || []).map((v) => `<button type="button" class="chip feat" data-f="func" data-v="${esc(v)}">${esc(FEATURES[v] || v)}</button>`).join("");
 
-  const copies = g.copies || [{ source: g.stores[0], platforms: g.platforms, status: g.status, playtime: g.playtime, added: g.added }];
+  const copies = g.copies || [{ id: g.id, source: g.stores[0], platforms: g.platforms, status: g.status, playtime: g.playtime, added: g.added }];
+  const podeMudar = document.body.classList.contains("can-update");
   $("#d-copies").innerHTML = copies.map((c) => `<div class="copy">
-      ${storeBadges([c.source || "Outros"])}
+      ${podeMudar && c.id?.startsWith("xbox:")
+        ? `<select class="copy-origem" data-copy="${esc(c.id)}" aria-label="Como você tem este jogo">${ORIGENS.map((o) =>
+          `<option${o === c.source ? " selected" : ""}>${o}</option>`).join("")}</select>`
+        : storeBadges([c.source || "Outros"])}
       <span class="copy-plat">${esc((c.platforms || []).join(", "))}</span>
       <span class="copy-status${c.status === "Jogado" ? " ok" : ""}">${esc(c.status || "")}</span>
       <span class="copy-time">${c.playtime ? fmtPlaytime(c.playtime) : ""}</span>
@@ -423,6 +431,11 @@ dialog.addEventListener("close", () => {
 });
 
 // ---------- eventos ----------
+// Cópia do Xbox: Game Pass, Xbox ou Microsoft Store (escolha manual, gravada por lojas.js)
+document.addEventListener("change", (e) => {
+  const sel = e.target.closest(".copy-origem");
+  if (sel) mudarOrigem(sel.dataset.copy, sel.value, sel);
+});
 function toggle(key, v) {
   const sel = (state.sel[key] ||= new Set());
   sel.has(v) ? sel.delete(v) : sel.add(v);

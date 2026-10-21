@@ -35,7 +35,7 @@ O dono (gabrielfbrandao9@gmail.com) foi cadastrado direto no banco; os outros s�
 | `jogos_acesso` | Quem pode entrar e com qual permissão |
 | `jogos_lojas` | Lojas conectadas: conta, quando sincronizou, quantos jogos, último erro |
 | `jogos_itens` | Jogos de cada loja como ela devolveu (horas em segundos; vazio = a loja não informa) |
-| `jogos_meta` | Cache do GOG GamesDB (`gdb:<loja>:<id>`), do catálogo da Epic (`epiccat:…`, em inglês) e do HowLongToBeat (`hltb:<nome normalizado>`; `{}` = não achou) |
+| `jogos_meta` | Cache do GOG GamesDB (`gdb:<loja>:<id>`), do catálogo da Epic (`epiccat:…`, em inglês) do HowLongToBeat (`hltb:<nome normalizado>`; `{}` = não achou) e a origem marcada à mão dos jogos do Xbox (`origem:xbox:<id>` → Game Pass, Xbox ou Microsoft Store) |
 | `jogos_tokens` | Tokens de login das lojas. **Nenhum navegador lê**, nem o do dono: só a função `jogos-lojas` |
 
 ## Funções

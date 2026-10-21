@@ -8,6 +8,7 @@
 //   sincronizar              baixa a lista de jogos da loja para jogos_itens (dono e editor)
 //   metadados                completa capas/gêneros/descrições pelo GOG GamesDB, em lotes (dono e editor)
 //   hltb                     tempo para zerar (HowLongToBeat) de uma lista de jogos, em lotes (dono e editor)
+//   origem                   marca à mão se um jogo do Xbox é Game Pass, Xbox ou Microsoft Store (dono e editor)
 //
 // Os tokens ficam em jogos_tokens, que nenhum navegador lê: só esta função (service role).
 // Os métodos de login da Epic, GOG e Amazon são os mesmos dos apps Legendary/Heroic, gogdl e Nile.
@@ -1167,6 +1168,8 @@ async function hltb(itens: { chave: string; nome: string }[]) {
   return { feitos: unicos.length, falhas };
 }
 
+const ORIGENS = ["Game Pass", "Xbox", "Microsoft Store"];
+
 // ---------- entrada ----------
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: CORS });
@@ -1198,6 +1201,13 @@ Deno.serve(async (req) => {
           .filter((i: any) => typeof i?.chave === "string" && typeof i?.nome === "string" && i.chave && i.nome)
           .map((i: any) => ({ chave: i.chave.slice(0, 200), nome: i.nome.slice(0, 200) }));
         return json(await hltb(itens));
+      }
+      case "origem": {
+        // Jogos do Xbox começam como Game Pass; a escolha manual fica em jogos_meta e vale nas próximas sincronizações
+        const id = String(body.id || ""), source = String(body.source || "");
+        if (!/^xbox:[\w.-]{1,80}$/.test(id) || !ORIGENS.includes(source)) return json({ error: "Escolha inválida." }, 400);
+        check(await admin.from("jogos_meta").upsert({ chave: `origem:${id}`, dados: { source } }));
+        return json({ ok: true });
       }
       default: return json({ error: "Ação desconhecida." }, 400);
     }

@@ -68,7 +68,7 @@ function artFor(it, meta, capas) {
 }
 
 // Uma cópia = um jogo numa loja
-function itemCopy(it, meta, capas) {
+function itemCopy(it, meta, capas, origem) {
   const m = meta || {};
   const x = it.extra || {};
   const playtime = it.playtime || 0;
@@ -78,7 +78,8 @@ function itemCopy(it, meta, capas) {
   return clean({
     id: `${it.loja}:${it.id_loja}`,
     name: it.nome,
-    source: x.source || LOJAS[it.loja].source,
+    // Xbox: tudo começa como Game Pass, até ser marcado à mão como Xbox ou Microsoft Store
+    source: it.loja === "xbox" ? origem || "Game Pass" : x.source || LOJAS[it.loja].source,
     platforms: some(x.platforms) || ["PC (Windows)"],
     playtime,
     status: playtime > 0 ? "Jogado" : "Não jogado",
@@ -174,10 +175,30 @@ async function fetchBeatTimes(payload, progress, onSaved) {
   }
 }
 
+// Troca à mão a origem de uma cópia do Xbox: grava a escolha e atualiza a biblioteca sem sincronizar de novo
+async function mudarOrigem(copyId, source, sel) {
+  sel.disabled = true;
+  try {
+    await Nuvem.lojasAcao({ acao: "origem", id: copyId, source });
+    const g = games.find((x) => x.id === copyId || x.copies?.some((c) => c.id === copyId));
+    if (g?.copies) {
+      g.copies.find((c) => c.id === copyId).source = source;
+      g.stores = [...new Set(g.copies.map((c) => c.source))].sort();
+    } else if (g) {
+      g.stores = [source];
+    }
+    const payload = { generated: localISO(), games };
+    onPublished(payload, (await Nuvem.salvarBiblioteca(payload)).atualizado_em);
+  } catch (err) {
+    alert(`Não deu para salvar: ${err.message}`);
+  }
+  sel.disabled = false;
+}
+
 // Junta as lojas sincronizadas e grava em jogos_biblioteca
 async function rebuildLibrary(progress) {
   progress("Juntando as lojas…", null);
-  const [items, metas] = await Promise.all([Nuvem.itens(), Nuvem.metas()]);
+  const [items, metas, origens] = await Promise.all([Nuvem.itens(), Nuvem.metas(), Nuvem.metas("origem:")]);
   if (!items.length) throw new Error("Nenhum jogo nas lojas: conecte uma loja e sincronize.");
 
   // Capas da Steam (as melhores): as que faltam são buscadas pela função jogos-capas
@@ -192,7 +213,7 @@ async function rebuildLibrary(progress) {
     }
   }
 
-  const list = items.map((it) => itemCopy(it, metas.get(`gdb:${it.loja}:${it.id_loja}`), capas));
+  const list = items.map((it) => itemCopy(it, metas.get(`gdb:${it.loja}:${it.id_loja}`), capas, origens.get(`origem:${it.loja}:${it.id_loja}`)?.source));
   const merged = mergeDuplicates(list);
   applyBeatTimes(merged, await Nuvem.metas("hltb:").catch(() => new Map()));
   merged.sort((a, b) => { const x = a.name.toLowerCase(), y = b.name.toLowerCase(); return x < y ? -1 : x > y ? 1 : 0; });

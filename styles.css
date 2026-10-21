@@ -304,6 +304,7 @@ select {
 .st-ubisoft-connect { --c: #4fb3ff; }
 .st-ea-app { --c: #ff6b6b; }
 .st-microsoft-store, .st-xbox { --c: #6fd35a; }
+.st-game-pass { --c: #c4f25a; }
 .st-legacy-games { --c: #f2d45c; }
 .st-riot-games { --c: #ff5a5f; }
 .st-battle-net { --c: #3fb0ff; }
@@ -491,6 +492,11 @@ dialog[open] { animation: pop .22s ease; }
 .copy-plat, .copy-added { color: var(--muted); }
 .copy-status.ok { color: var(--ok); font-weight: 600; }
 .copy-time { font-variant-numeric: tabular-nums; }
+.copy-origem {
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--text); background: var(--panel, transparent);
+  border: 1px solid var(--line); border-radius: 6px; padding: 3px 6px; cursor: pointer; color-scheme: dark;
+}
+.copy-origem:disabled { opacity: .6; cursor: wait; }
 
 .d-main h3 { font: 700 16px var(--display); margin: 26px 0 10px; }
 .prose { color: #c9c7c0; line-height: 1.65; overflow-wrap: anywhere; }

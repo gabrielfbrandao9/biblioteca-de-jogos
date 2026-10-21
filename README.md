@@ -43,6 +43,9 @@ e o resto continua funcionando.
   para `jogos_itens`; também busca capa, gêneros, nota e resumo de cada jogo no GOG GamesDB e o tempo para
   zerar (história, com extras e 100%) no HowLongToBeat. Os nomes da Epic vêm em inglês, como nas outras lojas,
   para o mesmo jogo se juntar.
+- Xbox: a Microsoft não informa o que foi comprado e o que veio do Game Pass, então todo jogo da conexão Xbox
+  começa como **Game Pass**. No detalhe do jogo (em "Onde eu tenho") quem pode atualizar troca para Xbox ou
+  Microsoft Store; a escolha fica em `jogos_meta` (`origem:xbox:<id>`) e vale nas próximas sincronizações.
 - `lojas.js` junta as lojas e grava a biblioteca. Jogos com o mesmo nome em lojas diferentes (ignorando
   maiúsculas, acentos e pontuação) aparecem uma vez só, com selos de cada loja e a seção "Onde eu tenho".
 - Capas: Steam (função `jogos-capas`) para jogos da Steam; GOG GamesDB ou catálogo da Epic para os outros.
