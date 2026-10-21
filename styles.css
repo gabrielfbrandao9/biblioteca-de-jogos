@@ -577,6 +577,10 @@ dialog[open] { animation: pop .22s ease; }
 .c-backup h3 { margin: 0; font: 700 17px var(--display); }
 .c-backup .u-lead { font-size: 14px; margin: 4px 0 10px; }
 .c-backup-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.c-restore { margin-top: 16px; }
+.c-restore h3 { margin: 0; font: 700 15px var(--display); }
+.c-restore label.btn { cursor: pointer; }
+.c-seen { font-size: 12px; }
 @media (max-width: 520px) {
   .l-row, .l-row:not(.on) { grid-template-columns: 1fr; }
   .l-name { justify-self: start; }

@@ -132,3 +132,12 @@ begin
     execute format('grant select on public.%I to authenticated', t);
   end loop;
 end $$;
+
+-- Último acesso de cada pessoa da lista (aparece para o dono em Conta → Quem tem acesso)
+alter table public.jogos_acesso add column if not exists ultimo_acesso timestamptz;
+create or replace function public.jogos_registrar_acesso()
+returns void language sql security definer set search_path to '' as $$
+  update public.jogos_acesso set ultimo_acesso = now() where email = public.meu_email();
+$$;
+revoke all on function public.jogos_registrar_acesso() from public, anon;
+grant execute on function public.jogos_registrar_acesso() to authenticated;

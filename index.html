@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://shared.akamai.steamstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=23">
+  <link rel="stylesheet" href="styles.css?v=24">
 </head>
 <body>
   <!-- Entrada: carregando, login ou sem acesso -->
@@ -163,6 +163,11 @@
         <button class="btn" type="button" data-backup="csv" title="Abre no Excel ou no Planilhas Google">CSV (planilha)</button>
         <button class="btn" type="button" data-backup="html" title="Página para abrir no navegador ou imprimir">HTML (página)</button>
       </div>
+      <div class="c-restore only-editor">
+        <h3>Restaurar backup</h3>
+        <p class="u-lead">Escolha um backup em JSON baixado aqui. Ele substitui a lista de jogos, as descrições e as marcações de Game Pass / Xbox / Microsoft Store. A próxima sincronização monta a lista de novo a partir das lojas.</p>
+        <label class="btn">Escolher backup (JSON)…<input type="file" id="c-restore" accept=".json,application/json" hidden></label>
+      </div>
       <p class="u-status" id="c-backup-status" aria-live="polite"></p>
     </section>
     <section class="c-acesso" id="c-acesso" hidden>
@@ -187,11 +192,11 @@
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=23"></script>
-  <script src="nuvem.js?v=23"></script>
-  <script src="app.js?v=23"></script>
-  <script src="lojas.js?v=23"></script>
-  <script src="backup.js?v=23"></script>
-  <script src="entrada.js?v=23"></script>
+  <script src="config.js?v=24"></script>
+  <script src="nuvem.js?v=24"></script>
+  <script src="app.js?v=24"></script>
+  <script src="lojas.js?v=24"></script>
+  <script src="backup.js?v=24"></script>
+  <script src="entrada.js?v=24"></script>
 </body>
 </html>

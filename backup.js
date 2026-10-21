@@ -38,6 +38,36 @@ const Backup = (() => {
     ["Links", (g) => juntar((g.links || []).map((l) => l.url))],
   ];
 
+  // Restaura um backup JSON: lista de jogos, descrições e a origem (Game Pass/Xbox/MS Store) das cópias do Xbox
+  async function restaurar(arquivo, progresso) {
+    let b;
+    try { b = JSON.parse(await arquivo.text()); } catch { throw new Error("o arquivo não é um JSON válido."); }
+    const jogos = b?.jogos;
+    const valido = (g) => g && typeof g.id === "string" && typeof g.name === "string" && Array.isArray(g.stores);
+    if (!Array.isArray(jogos) || !jogos.length || !jogos.every(valido)) {
+      throw new Error("esse arquivo não é um backup da biblioteca (use um baixado em “JSON”).");
+    }
+    const quando = b.exportado_em ? ` de ${fmtDate(b.exportado_em)}` : "";
+    if (!confirm(`Restaurar o backup${quando} com ${nf.format(jogos.length)} jogos? A lista atual do site será substituída.`)) return;
+
+    const descs = Object.entries(b.descricoes || {}).filter(([id, html]) => typeof html === "string" && id);
+    progresso(`Restaurando ${nf.format(descs.length)} descrições…`);
+    await Nuvem.salvarDescricoes(descs);
+
+    const origens = jogos.flatMap((g) => g.copies || [{ id: g.id, source: g.stores[0] }])
+      .filter((c) => typeof c.id === "string" && c.id.startsWith("xbox:") && ORIGENS.includes(c.source));
+    for (let i = 0; i < origens.length; i += 6) {
+      progresso(`Restaurando Game Pass / Xbox / Microsoft Store… ${nf.format(i)}/${nf.format(origens.length)}`);
+      await Promise.all(origens.slice(i, i + 6).map((c) => Nuvem.lojasAcao({ acao: "origem", id: c.id, source: c.source })));
+    }
+
+    for (const g of jogos) if (g.copies?.length) g.stores = [...new Set(g.copies.map((c) => c.source))].sort();
+    progresso("Salvando a lista de jogos…");
+    const payload = { generated: localISO(), games: jogos };
+    onPublished(payload, (await Nuvem.salvarBiblioteca(payload)).atualizado_em);
+    progresso(`Backup restaurado: ${nf.format(jogos.length)} jogos.`, "ok");
+  }
+
   async function json(progresso) {
     const jogos = lista();
     // Descrições ficam em outra tabela: entram no backup para ele ser completo
@@ -94,5 +124,5 @@ ${linhas}
     baixar(`biblioteca-de-jogos-${hoje()}.html`, "text/html;charset=utf-8", pagina);
   }
 
-  return { json, csv, html };
+  return { restaurar, json, csv, html };
 })();

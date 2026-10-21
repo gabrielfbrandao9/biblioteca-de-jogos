@@ -63,6 +63,7 @@ async function start() {
       showGate("noaccess");
       return;
     }
+    Nuvem.registrarAcesso().catch((err) => console.warn("Último acesso:", err));
     // A lista tem ~2 MB: só baixa de novo se mudou desde a última visita
     const versao = await Nuvem.versao();
     const cache = await kv.get(cacheKey());
@@ -118,7 +119,8 @@ Nuvem.onAuthChange((u) => {
   function status(text, kind = "") { $c("c-status").textContent = text; $c("c-status").className = `u-status ${kind}`; }
   function renderList() {
     $c("c-list").innerHTML = acessos.map((a) => `<li>
-        <span class="c-who"><b>${esc(a.nome || a.email)}</b>${a.nome ? `<small>${esc(a.email)}</small>` : ""}</span>
+        <span class="c-who"><b>${esc(a.nome || a.email)}</b>${a.nome ? `<small>${esc(a.email)}</small>` : ""}
+          <small class="c-seen">${a.ultimo_acesso ? `Último acesso: ${esc(new Date(a.ultimo_acesso).toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" }))}` : "Ainda não entrou"}</small></span>
         ${a.papel === "dono" ? `<span class="c-role">Dono</span>` : `
         <select data-email="${esc(a.email)}" aria-label="Permissão de ${esc(a.email)}">
           ${["leitor", "editor"].map((p) => `<option value="${p}"${a.papel === p ? " selected" : ""}>${PAPEIS[p]}</option>`).join("")}
@@ -157,6 +159,17 @@ Nuvem.onAuthChange((u) => {
       msg(`Não foi possível gerar o backup: ${err.message}`, "err");
     } finally {
       btn.disabled = false;
+    }
+  });
+  $c("c-restore").addEventListener("change", async (e) => {
+    const arquivo = e.target.files[0];
+    e.target.value = "";
+    if (!arquivo) return;
+    const msg = (text, kind = "") => { $c("c-backup-status").textContent = text; $c("c-backup-status").className = `u-status ${kind}`; };
+    try {
+      await Backup.restaurar(arquivo, msg);
+    } catch (err) {
+      msg(`Não foi possível restaurar: ${err.message}`, "err");
     }
   });
   $c("c-sair").addEventListener("click", () => { dlg.close(); logout(); });

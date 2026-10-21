@@ -30,6 +30,7 @@ O dono (gabrielfbrandao9@gmail.com) foi cadastrado direto no banco; os outros s�
 | Tabela | O que guarda |
 |--------|--------------|
 | `jogos_biblioteca` | A lista de todos os jogos montada das lojas (uma linha só, coluna `dados`) |
+| `jogos_acesso.ultimo_acesso` | Hora do último acesso de cada pessoa, gravada pela função `jogos_registrar_acesso()` (cada um só grava o próprio) |
 | `jogos_descricoes` | Resumo de cada jogo do GOG GamesDB (`gdb:<id>`) |
 | `jogos_capas` | Caminhos das capas da Steam por appid (`{}` = sem capa na Steam) |
 | `jogos_acesso` | Quem pode entrar e com qual permissão |

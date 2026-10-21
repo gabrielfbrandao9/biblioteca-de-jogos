@@ -44,6 +44,10 @@ const Nuvem = (() => {
     async papel() {
       return check(await client.rpc("jogos_papel"));
     },
+    // Guarda a hora deste acesso (o dono vê em Conta → Quem tem acesso)
+    async registrarAcesso() {
+      check(await client.rpc("jogos_registrar_acesso"));
+    },
 
     // ---------- Biblioteca ----------
     // Só a data da última atualização (para saber se o cache local ainda vale)
@@ -58,6 +62,15 @@ const Nuvem = (() => {
       return check(await client.from("jogos_biblioteca")
         .upsert({ id: 1, dados, atualizado_em: new Date().toISOString() })
         .select("atualizado_em").single());
+    },
+    // Grava descrições [[id, html], …] (restaurar backup)
+    async salvarDescricoes(lista) {
+      const hex = async (t) => [...new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(t)))]
+        .map((b) => b.toString(16).padStart(2, "0")).join("");
+      for (let i = 0; i < lista.length; i += 100) {
+        const rows = await Promise.all(lista.slice(i, i + 100).map(async ([id, html]) => ({ id, html, hash: await hex(html) })));
+        check(await client.from("jogos_descricoes").upsert(rows));
+      }
     },
     // Map id -> html de várias descrições (para o backup)
     async descricoes(ids) {
@@ -120,7 +133,7 @@ const Nuvem = (() => {
     },
     // ---------- Acesso (só o dono altera) ----------
     async acessos() {
-      return check(await client.from("jogos_acesso").select("email, papel, nome, adicionado_em").order("adicionado_em"));
+      return check(await client.from("jogos_acesso").select("email, papel, nome, adicionado_em, ultimo_acesso").order("adicionado_em"));
     },
     async darAcesso(row) {
       return check(await client.from("jogos_acesso").insert(row).select().single());
