@@ -8,7 +8,7 @@
  *
  * Ao mudar a lista de arquivos, aumente VERSAO.
  */
-const VERSAO = 'v1';
+const VERSAO = 'v2';
 const CACHE = `jogos-${VERSAO}`;
 const CACHE_IMG = 'jogos-img';
 const MAX_IMG = 800;

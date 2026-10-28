@@ -217,9 +217,19 @@ select {
 /* ---------- Grade ---------- */
 .grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(calc(158px * var(--escala, 1)), 1fr));
   gap: 26px 18px;
 }
+/* Capas pequenas: sem os selos das lojas, para não embolar */
+.grid.mini { gap: 18px 12px; }
+.grid.mini .card-sub { display: none; }
+.grid.mini .card-name { font-size: 12.5px; }
+.zoom { display: inline-flex; }
+.zoom .icon-btn { font-size: 20px; line-height: 1; font-weight: 600; }
+.zoom .icon-btn:first-child { border-radius: 8px 0 0 8px; }
+.zoom .icon-btn:last-child { border-radius: 0 8px 8px 0; margin-left: -1px; }
+.zoom .icon-btn:disabled { opacity: .4; cursor: default; }
+.zoom .icon-btn:disabled:hover { border-color: var(--line); }
 .card {
   display: flex; flex-direction: column; gap: 9px;
   padding: 0; background: none; border: 0; text-align: left;
@@ -563,7 +573,7 @@ dialog[open] { animation: pop .22s ease; }
   .result-count { order: 5; width: 100%; margin: 0; }
   .segmented button { padding: 6px 10px; font-size: 13px; }
   .toolbar { position: static; margin-top: 0; }
-  .grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 18px 10px; }
+  .grid { grid-template-columns: repeat(auto-fill, minmax(calc(100px * var(--escala, 1)), 1fr)); gap: 18px 10px; }
   .card-name { font-size: 13px; }
   .ph-title { font-size: 13.5px; }
   .d-hero { height: 200px; }

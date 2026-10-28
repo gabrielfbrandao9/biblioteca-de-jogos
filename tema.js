@@ -42,6 +42,41 @@
   });
   window.addEventListener("appinstalled", () => botoes().forEach((b) => { b.hidden = true; }));
 
+  // Tamanho das capas: botões − e + (e as teclas − e +), guardado neste aparelho
+  const ESCALAS = [0.65, 0.8, 1, 1.2, 1.45, 1.75];
+  const CHAVE_CAPA = "jogos:capa";
+  let nivel = 2;
+  try { const n = Number(localStorage.getItem(CHAVE_CAPA)); if (Number.isInteger(n) && n >= 0 && n < ESCALAS.length) nivel = n; } catch {}
+  function aplicarCapa() {
+    const grade = document.getElementById("grid");
+    if (grade) {
+      grade.style.setProperty("--escala", ESCALAS[nivel]);
+      grade.classList.toggle("mini", nivel < 2);
+    }
+    const menos = document.getElementById("capa-menos"), mais = document.getElementById("capa-mais");
+    if (menos) menos.disabled = nivel === 0;
+    if (mais) mais.disabled = nivel === ESCALAS.length - 1;
+  }
+  function mudarCapa(d) {
+    const novo = Math.max(0, Math.min(ESCALAS.length - 1, nivel + d));
+    if (novo === nivel) return;
+    nivel = novo;
+    try { localStorage.setItem(CHAVE_CAPA, String(nivel)); } catch {}
+    aplicarCapa();
+  }
+  document.addEventListener("click", (e) => {
+    if (e.target.closest("#capa-menos")) mudarCapa(-1);
+    else if (e.target.closest("#capa-mais")) mudarCapa(1);
+  });
+  document.addEventListener("keydown", (e) => {
+    const alvo = e.target;
+    if (e.ctrlKey || e.metaKey || e.altKey || document.querySelector("dialog[open]")) return;
+    if (alvo && (alvo.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(alvo.tagName))) return;
+    if (e.key === "+" || e.key === "=") mudarCapa(1);
+    else if (e.key === "-" || e.key === "_") mudarCapa(-1);
+  });
+  aplicarCapa();
+
   if ("serviceWorker" in navigator && location.protocol === "https:") {
     navigator.serviceWorker.register("sw.js").catch(() => {});
   }

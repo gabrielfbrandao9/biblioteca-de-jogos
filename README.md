@@ -68,6 +68,7 @@ e o resto continua funcionando.
 - Busca por nome, desenvolvedor ou editora (atalho `/`)
 - Filtros por loja, gênero, década de lançamento, modo de jogo, plataforma e nota da crítica
 - Ordenação por nome, lançamento, notas, data de adição, tempo de jogo e última atividade
+- Botões **−** e **+** (ou as teclas − e +) para diminuir ou aumentar as capas; o tamanho fica guardado no aparelho
 - **Sortear**: escolhe um jogo aleatório entre os filtrados (ótimo para o backlog)
 - Página de detalhes com banner, descrição e links; setas ← → navegam entre jogos
 - Filtros e jogo aberto ficam na URL (o link só abre para quem tem acesso)
