@@ -7,11 +7,12 @@ Ubisoft, Battle.net, Riot e Legacy Games), publicado no GitHub Pages.
 
 ## Quem pode ver
 
-Só quem entra com uma conta Google liberada. Os jogos ficam no Supabase (não neste repositório) e o
+Só quem entra com um e-mail liberado (pela conta Google ou por um link que chega no e-mail). Os jogos ficam no Supabase (não neste repositório) e o
 banco confere o e-mail em toda leitura, então não adianta ter o endereço do site. Detalhes em [SUPABASE.md](SUPABASE.md).
 
 O dono libera as pessoas em **Conta** (a foto no canto de cima): e-mail Google, nome e permissão
-(**Só ver** ou **Pode atualizar**).
+(**Só ver** ou **Pode atualizar**), e o botão **Avisar** manda o convite pelo WhatsApp.
+Na mesma lista aparece o último acesso de cada pessoa.
 
 ## Como atualizar
 
@@ -57,6 +58,10 @@ e o resto continua funcionando.
   Jogos sem capa ganham um cartão colorido com o nome.
 - A lista de jogos fica guardada no navegador e só é baixada de novo quando muda.
 - O site (`index.html`, `styles.css`, `app.js`…) é estático, sem etapa de build.
+- `tema.js`: tema claro/escuro (botão ☀/☾; o padrão segue o aparelho) e botão **Instalar app**.
+- `sw.js` + `manifest.webmanifest`: app instalável. Sem internet, o site abre a última cópia da lista guardada
+  no aparelho (só para ver) e as capas que já apareceram. Ao mudar a lista de arquivos, aumente `VERSAO` no `sw.js`.
+- `privacidade.html`: política de privacidade (link na entrada e em Conta).
 
 ## Recursos
 

@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Política de Privacidade · Biblioteca de Jogos</title>
+<meta name="description" content="Política de privacidade do site Biblioteca de Jogos.">
+<link rel="icon" href="icon.svg">
+<script>
+  // Aplica o tema escolhido no site antes de desenhar a página.
+  try { var t = localStorage.getItem('jogos:tema'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch (e) {}
+</script>
+<style>
+  :root { --bg:#f4f2ec; --surface:#ffffff; --ink:#1c1d22; --muted:#5f6370; --line:#e0dbcf; --accent:#a8670a; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg:#0b0d12; --surface:#10131a; --ink:#ece9e2; --muted:#8d93a3; --line:#252b38; --accent:#f5b942; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg:#0b0d12; --surface:#10131a; --ink:#ece9e2; --muted:#8d93a3; --line:#252b38; --accent:#f5b942; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.6 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { background: var(--surface); border-bottom: 1px solid var(--line); }
+  header .in, main, footer { max-width: 760px; margin: 0 auto; padding-left: 16px; padding-right: 16px; }
+  header .in { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; padding-bottom: 12px; }
+  header strong { font-size: 17px; }
+  a { color: var(--accent); }
+  .voltar { text-decoration: none; font-weight: 600; font-size: 14px; border: 1px solid var(--line); border-radius: 10px; padding: 7px 12px; color: var(--ink); background: var(--bg); white-space: nowrap; }
+  main { padding-top: 24px; padding-bottom: 24px; }
+  h1 { font-size: 28px; line-height: 1.2; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 28px 0 6px; }
+  p, li { max-width: 68ch; }
+  .muted { color: var(--muted); font-size: 14px; }
+  footer { color: var(--muted); font-size: 14px; padding-top: 8px; padding-bottom: 32px; }
+</style>
+</head>
+<body>
+<header><div class="in"><strong>Biblioteca de Jogos</strong><a class="voltar" href="./">← Voltar ao site</a></div></header>
+<main>
+  <h1>Política de Privacidade</h1>
+  <p class="muted">Última atualização: 28 de outubro de 2026</p>
+  <p>A <strong>Biblioteca de Jogos</strong> é um catálogo pessoal dos jogos que o dono tem em várias lojas.
+    Esta página explica quais dados são usados e como.</p>
+  <h2>O que é guardado</h2>
+  <ul>
+    <li><strong>Sua conta</strong>: o e-mail e, no login com Google, o nome e a foto do perfil.</li>
+    <li><strong>A lista de jogos</strong> do dono, com capas, descrições, tempo jogado e notas.</li>
+    <li><strong>Conexões com as lojas</strong> (só do dono): as chaves e sessões que ele conecta ficam guardadas no servidor e só a função de sincronização as lê. Senhas não são guardadas.</li>
+    <li><strong>Lista de acesso</strong>: e-mail, nome e permissão (só ver ou pode atualizar) de quem foi liberado pelo dono.</li>
+    <li><strong>Último acesso</strong>: quando você abre o site, a data fica registrada. Só o dono vê.</li>
+  </ul>
+  <p>Não pedimos acesso aos seus contatos, arquivos, e-mails ou qualquer outro dado da sua conta Google.</p>
+  <h2>Quem vê os dados</h2>
+  <p>Só quem o dono liberou, entrando com o e-mail cadastrado. O banco confere a permissão em toda leitura,
+    então ter o endereço do site não basta.</p>
+  <h2>Onde os dados ficam</h2>
+  <p>O login e o banco de dados são fornecidos pelo <a href="https://supabase.com/privacy" target="_blank" rel="noopener">Supabase</a>.
+    O site é hospedado no <a href="https://docs.github.com/pt/site-policy/privacy-policies/github-general-privacy-statement" target="_blank" rel="noopener">GitHub Pages</a>.
+    Os dados <strong>não são vendidos, compartilhados com terceiros nem usados para publicidade</strong>.</p>
+  <h2>Cookies e armazenamento no aparelho</h2>
+  <p>O site guarda no navegador a sessão de login, o tema escolhido e uma cópia da lista de jogos (para abrir mais rápido e sem internet).
+    Não usamos cookies de rastreamento nem ferramentas de análise.</p>
+  <h2>Seus direitos e exclusão de dados</h2>
+  <p>O dono pode baixar a lista completa em <em>Conta → Baixar backup</em> e remover o acesso de qualquer pessoa. Para excluir sua conta e todos os dados associados, pedir uma cópia deles ou tirar dúvidas,
+    escreva para <a href="mailto:gabrielfbrandao9@gmail.com">gabrielfbrandao9@gmail.com</a>.</p>
+</main>
+<footer><a href="./">Biblioteca de Jogos</a></footer>
+</body>
+</html>

@@ -37,6 +37,11 @@ const Nuvem = (() => {
       const redirectTo = location.origin + location.pathname;
       check(await client.auth.signInWithOAuth({ provider: "google", options: { redirectTo } }));
     },
+    // Link de acesso por e-mail (para quem não usa a conta Google)
+    async entrarEmail(email) {
+      const emailRedirectTo = location.origin + location.pathname;
+      check(await client.auth.signInWithOtp({ email, options: { emailRedirectTo } }));
+    },
     async sair() {
       check(await client.auth.signOut());
     },

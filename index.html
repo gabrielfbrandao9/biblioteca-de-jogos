@@ -7,15 +7,25 @@
   <meta name="description" content="Catálogo pessoal de jogos da Steam, Epic, GOG e Amazon.">
   <meta name="theme-color" content="#0b0d12">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <script>
+    // Aplica o tema escolhido antes de desenhar a página (evita piscar).
+    try { var t = localStorage.getItem("jogos:tema"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) {}
+  </script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="preconnect" href="https://shared.akamai.steamstatic.com">
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=26">
+  <link rel="stylesheet" href="styles.css?v=27">
 </head>
 <body>
   <!-- Entrada: carregando, login ou sem acesso -->
   <section class="gate" id="gate">
+    <button class="theme-btn" type="button" aria-label="Mudar para o tema claro" title="Mudar para o tema claro">
+      <svg class="ic-lua" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+      <svg class="ic-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+    </button>
     <div class="gate-card">
       <h1>Biblioteca<span>de jogos</span></h1>
       <div id="gate-body"><p class="muted">Carregando…</p></div>
@@ -35,8 +45,16 @@
         <kbd>/</kbd>
       </label>
     </div>
-    <button class="account" id="account" type="button" aria-label="Conta e acesso" title="Conta e acesso"></button>
+    <div class="top-actions">
+      <button class="btn accent" type="button" data-instalar hidden title="Instalar como app">Instalar app</button>
+      <button class="theme-btn" type="button" aria-label="Mudar para o tema claro" title="Mudar para o tema claro">
+        <svg class="ic-lua" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"/></svg>
+        <svg class="ic-sol" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.2"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>
+      </button>
+      <button class="account" id="account" type="button" aria-label="Conta e acesso" title="Conta e acesso"></button>
+    </div>
   </header>
+  <p class="offline-note" id="offline-note" hidden>Sem internet: mostrando a última cópia guardada neste aparelho. Ao voltar a conexão, a biblioteca se atualiza sozinha.</p>
 
   <div class="layout">
     <aside class="sidebar" id="sidebar" aria-label="Filtros">
@@ -192,10 +210,10 @@
     </section>
     <section class="c-acesso" id="c-acesso" hidden>
       <h3>Quem tem acesso</h3>
-      <p class="u-lead">Só entra quem está nesta lista, com a conta Google do e-mail. <b>Só ver</b> abre a biblioteca; <b>Pode atualizar</b> também sincroniza as lojas.</p>
+      <p class="u-lead">Só entra quem está nesta lista, com a conta Google do e-mail ou pelo link que chega nele. <b>Só ver</b> abre a biblioteca; <b>Pode atualizar</b> também sincroniza as lojas. <b>Avisar</b> manda o convite pelo WhatsApp.</p>
       <ul class="c-list" id="c-list"></ul>
       <form class="c-form" id="c-form" autocomplete="off">
-        <input id="c-email" type="email" placeholder="e-mail Google" required spellcheck="false">
+        <input id="c-email" type="email" placeholder="e-mail da pessoa" required spellcheck="false">
         <input id="c-nome" type="text" placeholder="nome (opcional)">
         <select id="c-papel" aria-label="Permissão">
           <option value="leitor">Só ver</option>
@@ -205,18 +223,21 @@
       </form>
       <p class="u-status" id="c-status" aria-live="polite"></p>
     </section>
+    <p class="c-links"><a href="privacidade.html">Política de privacidade</a></p>
     <div class="u-actions">
+      <button class="btn accent" type="button" data-instalar hidden>Instalar app</button>
       <button class="btn" id="c-sair" type="button">Sair</button>
       <button class="btn" id="c-close" type="button">Fechar</button>
     </div>
   </dialog>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-  <script src="config.js?v=26"></script>
-  <script src="nuvem.js?v=26"></script>
-  <script src="app.js?v=26"></script>
-  <script src="lojas.js?v=26"></script>
-  <script src="backup.js?v=26"></script>
-  <script src="entrada.js?v=26"></script>
+  <script src="config.js?v=27"></script>
+  <script src="nuvem.js?v=27"></script>
+  <script src="app.js?v=27"></script>
+  <script src="lojas.js?v=27"></script>
+  <script src="backup.js?v=27"></script>
+  <script src="entrada.js?v=27"></script>
+  <script src="tema.js?v=27"></script>
 </body>
 </html>
